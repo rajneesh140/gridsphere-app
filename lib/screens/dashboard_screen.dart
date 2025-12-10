@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:async';
+import 'dart:math'; // Imported for random data generation
 import 'overview_screen.dart';
-import 'profile_screen.dart'; // Import the new Profile Screen
+import 'profile_screen.dart';
+import 'chat_screen.dart'; 
+import 'temperature_details_screen.dart'; // Import the new screen
 
 // Fallback GoogleFonts class... (same as before)
 class GoogleFonts {
@@ -38,13 +41,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? sensorData;
   bool isLoading = true;
   Timer? _timer;
+  int _selectedIndex = 0; 
 
   @override
   void initState() {
     super.initState();
     _fetchData();
-    _timer =
-        Timer.periodic(const Duration(seconds: 60), (timer) => _fetchData());
+    _timer = Timer.periodic(const Duration(seconds: 60), (timer) => _fetchData());
   }
 
   @override
@@ -54,17 +57,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _fetchData() async {
-    setState(() => isLoading = true);
+    if (sensorData == null) {
+      setState(() => isLoading = true);
+    }
+    
     await Future.delayed(const Duration(seconds: 1));
+    
+    final random = Random();
+
     final data = {
-      "temp": 28.0,
-      "humidity": 65.0,
-      "soil_moisture": 65,
-      "crop_health": "Good",
-      "pest_alert": "Low",
-      "next_harvest": "15 Days",
-      "watering": "Recommended",
+      "air_temp": double.parse((24.0 + random.nextDouble() * 2 - 1).toStringAsFixed(1)),
+      "humidity": 65 + random.nextInt(6) - 3, 
+      "leaf_wetness": random.nextDouble() > 0.9 ? "Wet" : "Dry",
+      "soil_temp": double.parse((20.0 + random.nextDouble()).toStringAsFixed(1)),
+      "soil_moisture": 30 + random.nextInt(5), 
+      "rainfall": double.parse((5.2 + (random.nextDouble() * 0.2)).toStringAsFixed(1)),
+      "light_intensity": 850 + random.nextInt(50) - 25,
+      "wind": double.parse((12.0 + random.nextDouble() * 3).toStringAsFixed(1)),
+      "pressure": 1013 + random.nextInt(4) - 2,
+      "depth_temp": double.parse((22.5 + random.nextDouble() * 0.5).toStringAsFixed(1)),
+      "depth_humidity": double.parse((60.0 + random.nextDouble() * 2).toStringAsFixed(1)),
+      "surface_temp": double.parse((26.0 + random.nextDouble()).toStringAsFixed(1)),
+      "surface_humidity": double.parse((55.0 + random.nextDouble() * 2).toStringAsFixed(1)),
     };
+
     setState(() {
       sensorData = data;
       isLoading = false;
@@ -74,41 +90,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF166534),
+      backgroundColor: Colors.white, 
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ChatScreen()),
+          );
+        },
+        backgroundColor: const Color(0xFF166534),
+        child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) => setState(() => _selectedIndex = index),
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: const Color(0xFF166534),
+        unselectedItemColor: Colors.grey,
+        showUnselectedLabels: true,
+        selectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12),
+        unselectedLabelStyle: GoogleFonts.inter(fontSize: 12),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: "Home",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.sensors),
+            label: "Sensors",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.map_outlined),
+            label: "Map",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications_none),
+            label: "Alerts",
+          ),
+        ],
+      ),
       body: SafeArea(
-        bottom: false,
         child: Column(
           children: [
-            _buildCustomHeader(context), // Pass context here
+            _buildCustomHeader(context),
             Expanded(
-              child: Container(
-                width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-                ),
-                child: isLoading
-                    ? const Center(
-                        child:
-                            CircularProgressIndicator(color: Color(0xFF166534)))
-                    : SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20.0, vertical: 24.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildSummaryTitle(),
-                            const SizedBox(height: 20),
-                            _buildMainVitalsCard(context),
-                            const SizedBox(height: 16),
-                            _buildOverviewButton(context),
-                            const SizedBox(height: 16),
-                            _buildActionGrid(),
-                            const SizedBox(height: 16)
-                          ],
-                        ),
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF166534)))
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 10),
+                          Text(
+                            "Field Conditions",
+                            style: GoogleFonts.inter(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildFieldConditionsGrid(),
+                          const SizedBox(height: 80), 
+                        ],
                       ),
-              ),
+                    ),
             ),
           ],
         ),
@@ -116,34 +163,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Updated to accept context and navigate to Profile
   Widget _buildCustomHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 25),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Image.asset(
-                  'assets/logo.png',
-                  width: 24,
-                  height: 24,
-                  // If the image fails to load (missing file), show the Icon instead
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Icon(
-                      Icons.public, // Represents 'Grid Sphere'
-                      size: 24,
-                      color: Colors.white,
-                    );
-                  },
-                ),
+              const Icon(
+                Icons.public, 
+                size: 32,
+                color: Color(0xFF166534),
               ),
               const SizedBox(width: 12),
               Column(
@@ -152,7 +183,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Text(
                     "Grid Sphere Pvt. Ltd.",
                     style: GoogleFonts.inter(
-                      color: Colors.white,
+                      color: Colors.black87,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -160,7 +191,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Text(
                     "AgriTech",
                     style: GoogleFonts.inter(
-                      color: Colors.white70,
+                      color: Colors.grey,
                       fontSize: 12,
                     ),
                   ),
@@ -168,8 +199,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
-
-          // Profile Icon with Navigation
           GestureDetector(
             onTap: () {
               Navigator.push(
@@ -180,12 +209,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Container(
               width: 40,
               height: 40,
-              decoration: const BoxDecoration(
-                color: Color(0xFFD6C0B3), // Beige/Skin tone
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
                 shape: BoxShape.circle,
               ),
-              child:
-                  const Icon(Icons.person, color: Color(0xFF5D4037), size: 20),
+              child: const Icon(Icons.person, color: Colors.grey, size: 24),
             ),
           )
         ],
@@ -193,397 +221,300 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildSummaryTitle() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildFieldConditionsGrid() {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
+      childAspectRatio: 0.9, 
       children: [
-        Text(
-          "Summary",
-          style: GoogleFonts.inter(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF1F2937),
-          ),
+        // 1. Air Temp - CLICKABLE (Links to new screen)
+        _ConditionCard(
+          title: "Air Temp",
+          value: "${sensorData?['air_temp']}°C",
+          icon: LucideIcons.thermometer,
+          iconBg: const Color(0xFFE8F5E9),
+          iconColor: const Color(0xFF2E7D32),
+          child: _MiniLineChart(color: const Color(0xFF2E7D32)),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TemperatureDetailsScreen(sensorData: sensorData),
+              ),
+            );
+          },
         ),
-        Text(
-          "Real-time farm data from sensor towers",
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            color: Colors.grey[600],
+        
+        // 2. Humidity
+        _ConditionCard(
+          title: "Humidity",
+          value: "${sensorData?['humidity']}%",
+          icon: LucideIcons.droplets,
+          iconBg: const Color(0xFFE8F5E9),
+          iconColor: const Color(0xFF2E7D32),
+          child: _MiniLineChart(color: const Color(0xFF2E7D32)),
+        ),
+
+        // 3. Leaf Wetness
+        _ConditionCard(
+          title: "Leaf",
+          customContent: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Leaf Wetness",
+                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Text(
+                    "${sensorData?['leaf_wetness']}",
+                    style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 24),
+                ],
+              )
+            ],
           ),
+          icon: LucideIcons.leaf,
+          iconBg: const Color(0xFFE8F5E9),
+          iconColor: const Color(0xFF2E7D32),
+        ),
+
+        // 4. Rainfall
+        _ConditionCard(
+          title: "Today's\nRainfall",
+          subtitle: "Today",
+          value: "${sensorData?['rainfall']} mm",
+          icon: LucideIcons.cloudRain,
+          iconBg: const Color(0xFFE8F5E9),
+          iconColor: const Color(0xFF2E7D32),
+        ),
+
+        // 5. Light Intensity
+        _ConditionCard(
+          title: "Light\nIntensity",
+          value: "${sensorData?['light_intensity']} lx",
+          icon: LucideIcons.sun,
+          iconBg: const Color(0xFFFFFDE7),
+          iconColor: const Color(0xFFFBC02D),
+        ),
+
+        // 6. Wind
+        _ConditionCard(
+          title: "Wind",
+          value: "${sensorData?['wind']} km/h",
+          icon: LucideIcons.wind,
+          iconBg: const Color(0xFFE0F7FA),
+          iconColor: const Color(0xFF0097A7),
+        ),
+
+        // 7. Pressure
+        _ConditionCard(
+          title: "Pressure",
+          value: "${sensorData?['pressure']} hPa",
+          icon: LucideIcons.gauge,
+          iconBg: const Color(0xFFF3E5F5),
+          iconColor: const Color(0xFF7B1FA2),
+        ),
+
+        // 8. Depth Temp
+        _ConditionCard(
+          title: "Depth Temp\n(10cm)",
+          value: "${sensorData?['depth_temp']}°C",
+          icon: Icons.device_thermostat, 
+          iconBg: const Color(0xFFE8F5E9),
+          iconColor: const Color(0xFF2E7D32),
+        ),
+
+        // 9. Depth Humidity
+        _ConditionCard(
+          title: "Depth Hum\n(10cm)",
+          value: "${sensorData?['depth_humidity']}%",
+          icon: LucideIcons.droplet, 
+          iconBg: const Color(0xFFE1F5FE),
+          iconColor: const Color(0xFF0288D1),
+        ),
+
+        // 10. Surface Temp
+        _ConditionCard(
+          title: "Surf Temp",
+          value: "${sensorData?['surface_temp']}°C",
+          icon: Icons.thermostat,
+          iconBg: const Color(0xFFFFEBEE),
+          iconColor: const Color(0xFFD32F2F),
+        ),
+
+        // 11. Surface Humidity
+        _ConditionCard(
+          title: "Surf Hum",
+          value: "${sensorData?['surface_humidity']}%",
+          icon: LucideIcons.waves,
+          iconBg: const Color(0xFFEFEBE9),
+          iconColor: const Color(0xFF5D4037),
         ),
       ],
     );
   }
+}
 
-  Widget _buildOverviewButton(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const OverviewScreen()),
-          );
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF166534),
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          elevation: 0,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.bar_chart, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              "View Detailed Overview",
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+class _ConditionCard extends StatelessWidget {
+  final String title;
+  final String? value;
+  final String? subtitle;
+  final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
+  final Widget? child;
+  final Widget? customContent;
+  final VoidCallback? onTap;
+
+  const _ConditionCard({
+    required this.title,
+    this.value,
+    this.subtitle,
+    required this.icon,
+    required this.iconBg,
+    required this.iconColor,
+    this.child,
+    this.customContent,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade100),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildMainVitalsCard(BuildContext context) {
-    final int moisture = sensorData?['soil_moisture'] ?? 0;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const OverviewScreen()),
-          );
-        },
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 5,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      height: 100,
-                      width: 100,
-                      child: Stack(
-                        children: [
-                          Center(
-                            child: SizedBox(
-                              width: 100,
-                              height: 100,
-                              child: CircularProgressIndicator(
-                                value: 1.0,
-                                strokeWidth: 10,
-                                color: Colors.grey.shade100,
-                                strokeCap: StrokeCap.round,
-                              ),
-                            ),
-                          ),
-                          Center(
-                            child: SizedBox(
-                              width: 100,
-                              height: 100,
-                              child: CircularProgressIndicator(
-                                value: moisture / 100,
-                                strokeWidth: 10,
-                                color: const Color(0xFF166534),
-                                backgroundColor: Colors.transparent,
-                                strokeCap: StrokeCap.round,
-                              ),
-                            ),
-                          ),
-                          Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  "$moisture%",
-                                  style: GoogleFonts.inter(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF1F2937),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "Soil Moisture",
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: iconBg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, size: 20, color: iconColor),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      title,
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: Colors.grey[700],
+                        color: Colors.black87,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
+                  ),
                 ),
-              ),
-              Container(
-                height: 80,
-                width: 1,
-                color: Colors.grey.shade200,
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-              ),
-              Expanded(
-                flex: 4,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.thermostat,
-                              size: 18, color: Colors.blue),
-                        ),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Temperature",
-                              style: GoogleFonts.inter(
-                                fontSize: 11,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            Text(
-                              "${sensorData?['temp']}°C",
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF1F2937),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.grass,
-                              size: 18, color: Colors.green),
-                        ),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Crop health",
-                              style: GoogleFonts.inter(
-                                fontSize: 11,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            Text(
-                              "${sensorData?['crop_health']}",
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF166534),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (customContent != null)
+              Expanded(child: customContent!)
+            else ...[
+              if (subtitle != null)
+                Text(
+                  subtitle!,
+                  style: GoogleFonts.inter(fontSize: 12, color: Colors.grey),
+                ),
+              const SizedBox(height: 4),
+              Text(
+                value ?? "--",
+                style: GoogleFonts.inter(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionGrid() {
-    return Row(
-      children: [
-        Expanded(
-          child: _ActionCard(
-            title: "Watering",
-            subtitle: sensorData?['watering'] ?? "--",
-            icon: Icons.opacity,
-            iconColor: Colors.blue,
-            bgColor: Colors.blue.withOpacity(0.1),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _ActionCard(
-            title: "Pest Alert",
-            subtitle: sensorData?['pest_alert'] ?? "--",
-            icon: Icons.bug_report,
-            iconColor: Colors.red,
-            bgColor: Colors.red.withOpacity(0.1),
-            subtitleColor: Colors.green,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _ActionCard(
-            title: "Next Harvest",
-            subtitle: sensorData?['next_harvest'] ?? "--",
-            icon: Icons.inventory_2,
-            iconColor: Colors.green,
-            bgColor: Colors.green.withOpacity(0.1),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMapSection() {
-    return Container(
-      height: 180,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white, width: 4),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        image: const DecorationImage(
-          image: NetworkImage(
-              "https://img.freepik.com/free-vector/isometric-farm-elements-collection_23-2148520857.jpg?w=1380"),
-          fit: BoxFit.cover,
-        ),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.transparent,
-              Colors.black.withOpacity(0.1),
-            ],
-          ),
+            if (child != null) ...[
+              const Spacer(),
+              child!,
+            ]
+          ],
         ),
       ),
     );
   }
 }
 
-class _ActionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color iconColor;
-  final Color bgColor;
-  final Color? subtitleColor;
-
-  const _ActionCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.iconColor,
-    required this.bgColor,
-    this.subtitleColor,
-  });
+class _MiniLineChart extends StatelessWidget {
+  final Color color;
+  const _MiniLineChart({required this.color});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 110, // Fixed height for alignment
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(0),
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 20, color: iconColor),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: subtitleColor ?? const Color(0xFF1F2937),
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ],
+    return SizedBox(
+      height: 30,
+      width: double.infinity,
+      child: CustomPaint(
+        painter: _ChartPainter(color),
       ),
     );
   }
+}
+
+class _ChartPainter extends CustomPainter {
+  final Color color;
+  _ChartPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    final path = Path();
+    path.moveTo(0, size.height);
+    path.quadraticBezierTo(size.width * 0.25, size.height * 0.7, size.width * 0.5, size.height * 0.5);
+    path.quadraticBezierTo(size.width * 0.75, size.height * 0.8, size.width, size.height * 0.2);
+
+    canvas.drawPath(path, paint);
+    
+    final fillPath = Path.from(path)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+      
+    final gradient = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [color.withOpacity(0.2), color.withOpacity(0.0)],
+    );
+    
+    canvas.drawPath(fillPath, Paint()..shader = gradient.createShader(Rect.fromLTWH(0, 0, size.width, size.height)));
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
