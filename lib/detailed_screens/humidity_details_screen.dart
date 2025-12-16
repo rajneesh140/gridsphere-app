@@ -94,10 +94,8 @@ class _HumidityDetailsScreenState extends State<HumidityDetailsScreen> {
           List<GraphPoint> points = [];
 
           for (var r in readings) {
-            // Parse Humidity Value
             double val = double.tryParse(r['humidity'].toString()) ?? 0.0;
             
-            // Parse Time
             DateTime time;
             if (r['timestamp'] != null) {
               try {
@@ -112,7 +110,6 @@ class _HumidityDetailsScreenState extends State<HumidityDetailsScreen> {
             points.add(GraphPoint(time: time, value: val));
           }
 
-          // Sort by time ascending (Oldest -> Newest)
           points.sort((a, b) => a.time.compareTo(b.time));
 
           if (mounted) {
@@ -158,12 +155,10 @@ class _HumidityDetailsScreenState extends State<HumidityDetailsScreen> {
     String minTime = "--";
     
     if (_graphData.isNotEmpty) {
-      // Find Max Point
       final maxPoint = _graphData.reduce((curr, next) => curr.value > next.value ? curr : next);
       maxHum = maxPoint.value;
       maxTime = DateFormat('hh:mm a').format(maxPoint.time);
 
-      // Find Min Point
       final minPoint = _graphData.reduce((curr, next) => curr.value < next.value ? curr : next);
       minHum = minPoint.value;
       minTime = DateFormat('hh:mm a').format(minPoint.time);
@@ -194,12 +189,7 @@ class _HumidityDetailsScreenState extends State<HumidityDetailsScreen> {
           ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.share2, color: Colors.black87, size: 20),
-            onPressed: () {},
-          )
-        ],
+        // Removed actions (share button)
       ),
 
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -528,7 +518,6 @@ class _HumidityDetailsScreenState extends State<HumidityDetailsScreen> {
   }
 }
 
-// Custom Painter for Humidity Chart (Blue Theme)
 class _DetailedChartPainter extends CustomPainter {
   final List<GraphPoint> dataPoints;
   final Color color;
@@ -563,7 +552,6 @@ class _DetailedChartPainter extends CustomPainter {
     final double chartWidth = size.width - leftMargin;
     final double chartHeight = size.height - bottomMargin;
 
-    // --- Draw X-Axis Labels ---
     if (dataPoints.isNotEmpty) {
       final textStyle = TextStyle(color: Colors.grey[600], fontSize: 10, fontFamily: 'Inter');
       final firstTime = dataPoints.first.time;
@@ -603,11 +591,9 @@ class _DetailedChartPainter extends CustomPainter {
         return;
     } 
 
-    // --- Draw Y-Axis (Humidity 0-100%) ---
     double minVal = dataPoints.map((e) => e.value).reduce(min);
     double maxVal = dataPoints.map((e) => e.value).reduce(max);
     
-    // Add buffer
     minVal = (minVal - 5).floorToDouble();
     maxVal = (maxVal + 5).ceilToDouble();
     if (minVal < 0) minVal = 0;
@@ -633,7 +619,6 @@ class _DetailedChartPainter extends CustomPainter {
       canvas.drawLine(Offset(leftMargin, yPos), Offset(size.width, yPos), gridPaint);
     }
 
-    // --- Draw Curve ---
     final path = Path();
     final firstTime = dataPoints.first.time;
     final totalDuration = dataPoints.last.time.difference(firstTime).inMinutes;
@@ -642,7 +627,12 @@ class _DetailedChartPainter extends CustomPainter {
         final point = dataPoints[i];
         
         double timeDiff = point.time.difference(firstTime).inMinutes.toDouble();
-        double x = leftMargin + ((timeDiff / totalDuration) * chartWidth);
+        double x = leftMargin;
+        if (totalDuration > 0) {
+            x += ((timeDiff / totalDuration) * chartWidth);
+        } else {
+            x += chartWidth / 2;
+        }
         
         double normalizedY = (point.value - minVal) / yRange;
         double y = chartHeight - (normalizedY * chartHeight);

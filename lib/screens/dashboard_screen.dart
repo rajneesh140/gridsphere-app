@@ -8,6 +8,8 @@ import 'profile_screen.dart';
 import 'chat_screen.dart';
 import '../detailed_screens/temperature_details_screen.dart';
 import '../detailed_screens/humidity_details_screen.dart';
+// --- IMPORT NEW SCREEN ---
+import '../detailed_screens/leaf_wetness_details_screen.dart';
 import 'alerts_screen.dart';
 
 class GoogleFonts {
@@ -52,6 +54,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String lastOnline = "--";
   String deviceStatus = "Offline";
   String deviceLocation = "--";
+  
+  // --- Offline State ---
+  bool isDeviceOffline = false;
   
   Map<String, dynamic>? sensorData;
   // Store 24h history for all metrics using a Map
@@ -99,7 +104,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // --- NEW: Helper to Switch Devices ---
+  // --- Helper to Switch Devices ---
   void _switchDevice(String deviceId, String location) {
     if (selectedDeviceId == deviceId) return;
 
@@ -108,9 +113,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       deviceLocation = location;
       isLoading = true; // Show loading while fetching new device data
       sensorData = null; // Clear old data
+      
+      // --- Reset Status Indicators for the new device ---
+      isDeviceOffline = false;
+      deviceStatus = "Checking...";
+      lastOnline = "--";
     });
     
-    // Fetch data for the new device
+    // Fetch data for the new device (logic will re-run inside _fetchLiveData)
     _fetchLiveData();
     _fetchHistoryData();
   }
@@ -174,6 +184,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         farmerName = "Aditya Farm";
         lastOnline = "Today, 10:30 AM";
         deviceStatus = "Online";
+        isDeviceOffline = false; // Assume online for mock
         
         if (selectedDeviceId.isEmpty) {
              selectedDeviceId = mockDevices[0]['d_id']!;
@@ -183,7 +194,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // --- NEW: Fetch User Info for Farmer Name ---
+  // --- Fetch User Info for Farmer Name ---
   Future<void> _fetchUserInfo() async {
     try {
       final response = await http.get(
@@ -285,9 +296,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
           
           if (mounted) {
             setState(() {
-              // --- Update Field Information ---
-              lastOnline = reading['timestamp']?.toString() ?? "Unknown";
-              deviceStatus = "Online"; 
+              // --- Time Logic for Offline Check ---
+              String timeStr = reading['timestamp']?.toString() ?? "";
+              lastOnline = timeStr;
+              
+              // Calculate difference
+              bool isOffline = false;
+              if (timeStr.isNotEmpty) {
+                try {
+                   // Ensure ISO format for parsing (replace space with T if needed)
+                   DateTime readingTime = DateTime.parse(timeStr.replaceAll(' ', 'T'));
+                   Duration diff = DateTime.now().difference(readingTime);
+                   
+                   // Check if older than 90 minutes
+                   if (diff.inMinutes > 90) {
+                     isOffline = true;
+                   }
+                } catch (e) {
+                   debugPrint("Date Parse Error: $e");
+                }
+              }
+
+              isDeviceOffline = isOffline;
+              deviceStatus = isOffline ? "Offline" : "Online";
               
               sensorData = {
                 "air_temp": double.tryParse(reading['temp'].toString()) ?? 0.0,
@@ -309,13 +340,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         } else {
              // No readings might mean offline or new device
-             if (mounted) setState(() => deviceStatus = "Offline / No Data");
+             if (mounted) {
+               setState(() {
+                 deviceStatus = "Offline / No Data";
+                 isDeviceOffline = true;
+                 isLoading = false;
+               });
+             }
         }
       } else {
         debugPrint("Error fetching live data: ${response.statusCode}");
+        if (mounted) setState(() => isLoading = false);
       }
     } catch (e) {
       debugPrint("Exception fetching live data: $e");
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -441,7 +480,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
                 ),
-                child: ClipRRect( // Clip content to rounded corners
+                child: ClipRRect( 
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
                   child: isLoading
                     ? const Center(child: CircularProgressIndicator(color: Color(0xFF166534)))
@@ -451,6 +490,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 24),
+                            // --- NEW: Offline Warning Widget ---
+                            if (isDeviceOffline) _buildOfflineWarning(),
+                            
                             _buildFieldInfoBox(),
                             const SizedBox(height: 24),
                             
@@ -478,6 +520,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // --- Widgets (Header, Grid, Cards) ---
+
+  // --- Warning Widget ---
+  Widget _buildOfflineWarning() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 30),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Device Offline",
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red.shade800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Data is stale. Please contact the Grid Sphere service team.",
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: Colors.red.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildFieldInfoBox() {
     return Container(
@@ -538,7 +622,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildStatusRow("Status:", deviceStatus), 
+                    // Pass isOffline to style it red if needed
+                    _buildStatusRow("Status:", deviceStatus, isError: isDeviceOffline), 
                     const SizedBox(height: 12),
                     _buildInfoRow("Last Online:", lastOnline), 
                   ],
@@ -574,8 +659,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildStatusRow(String label, String value) {
-    final bool isOnline = value.toLowerCase().contains("online");
+  Widget _buildStatusRow(String label, String value, {bool isError = false}) {
+    // If we passed explicit error flag, use red. Otherwise check text.
+    final bool isOnline = !isError && value.toLowerCase().contains("online");
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -586,7 +673,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(height: 4),
         Row(
           children: [
-            Icon(Icons.circle, size: 8, color: isOnline ? const Color(0xFF22C55E) : Colors.red),
+            Icon(
+              isOnline ? Icons.check_circle : Icons.error_outline, 
+              size: 14, 
+              color: isOnline ? const Color(0xFF22C55E) : Colors.red
+            ),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -733,8 +824,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               MaterialPageRoute(
                 builder: (context) => TemperatureDetailsScreen(
                   sensorData: sensorData,
-                  deviceId: selectedDeviceId, // Pass device ID
-                  sessionCookie: widget.sessionCookie, // Pass Cookie
+                  deviceId: selectedDeviceId,
+                  sessionCookie: widget.sessionCookie,
                 )
               ),
             );
@@ -750,14 +841,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => HumidityDetailsScreen(
+              MaterialPageRoute(builder: (context) => HumidityDetailsScreen(
                   sensorData: sensorData,
-                  // --- Add these two lines ---
                   deviceId: selectedDeviceId,
                   sessionCookie: widget.sessionCookie,
-                ),
-              ),
+              )),
             );
           },
         ),
@@ -788,10 +876,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
           iconBg: const Color(0xFFDCFCE7),
           iconColor: const Color(0xFF15803D),
           child: _MiniLineChart(color: const Color(0xFF15803D), dataPoints: historyData['leaf_wetness'] ?? []),
+          onTap: () {
+             Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => LeafWetnessDetailsScreen(
+                  sensorData: sensorData,
+                  deviceId: selectedDeviceId,
+                  sessionCookie: widget.sessionCookie,
+              )),
+            );
+          }
         ),
         
-        // --- Soil Temp and Soil Moisture removed from here ---
-
+        // --- Remaining Cards ---
         _ConditionCard(
           title: "Today's\nRainfall",
           subtitle: "Today",
