@@ -3,9 +3,9 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math';
-import 'package:intl/intl.dart' hide TextDirection;
-import '../screens/chat_screen.dart';
-import '../screens/alerts_screen.dart';
+import 'package:intl/intl.dart' hide TextDirection; 
+import '../screens/chat_screen.dart';   
+import '../screens/alerts_screen.dart'; 
 
 class GoogleFonts {
   static TextStyle inter({
@@ -31,32 +31,35 @@ class GraphPoint {
   GraphPoint({required this.time, required this.value});
 }
 
-class LeafWetnessDetailsScreen extends StatefulWidget {
+class SurfaceTemperatureDetailsScreen extends StatefulWidget {
   final Map<String, dynamic>? sensorData;
   final String deviceId;
   final String sessionCookie;
 
-  const LeafWetnessDetailsScreen({
-    super.key,
-    this.sensorData,
+  const SurfaceTemperatureDetailsScreen({
+    super.key, 
+    this.sensorData, 
     required this.deviceId,
     required this.sessionCookie,
   });
 
   @override
-  State<LeafWetnessDetailsScreen> createState() => _LeafWetnessDetailsScreenState();
+  State<SurfaceTemperatureDetailsScreen> createState() => _SurfaceTemperatureDetailsScreenState();
 }
 
-class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
-  String _selectedRange = 'daily';
+class _SurfaceTemperatureDetailsScreenState extends State<SurfaceTemperatureDetailsScreen> {
+  String _selectedRange = 'daily'; 
   List<GraphPoint> _graphData = [];
   bool _isLoading = true;
   String _errorMessage = '';
 
+  // Defined Maroon Color
+  final Color _maroonColor = const Color(0xFF800000);
+
   @override
   void initState() {
     super.initState();
-    _fetchHistoryData('daily');
+    _fetchHistoryData('daily'); 
   }
 
   Future<void> _fetchHistoryData(String range) async {
@@ -66,8 +69,7 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
       _errorMessage = '';
     });
 
-    final url = Uri.parse(
-        "https://gridsphere.in/station/api/devices/${widget.deviceId}/history?range=$range");
+    final url = Uri.parse("https://gridsphere.in/station/api/devices/${widget.deviceId}/history?range=$range");
 
     try {
       final response = await http.get(
@@ -93,14 +95,15 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
           List<GraphPoint> points = [];
 
           for (var r in readings) {
-            double val = double.tryParse(r['leafwetness'].toString()) ?? 0.0;
-
+            // Parse Surface Temp
+            double val = double.tryParse(r['surface_temp'].toString()) ?? 0.0;
+            
             DateTime time;
             if (r['timestamp'] != null) {
               try {
                 time = DateTime.parse(r['timestamp'].toString());
               } catch (e) {
-                time = DateTime.now();
+                time = DateTime.now(); 
               }
             } else {
               time = DateTime.now();
@@ -109,6 +112,7 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
             points.add(GraphPoint(time: time, value: val));
           }
 
+          // Sort by time ascending
           points.sort((a, b) => a.time.compareTo(b.time));
 
           if (mounted) {
@@ -141,25 +145,33 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
           _errorMessage = "Connection error";
         });
       }
-      debugPrint("Error fetching leaf wetness history: $e");
+      debugPrint("Error fetching surface temp history: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Current Leaf Wetness is usually presented as "Wet" or "Dry" in dashboard string.
-    String currentStatus = widget.sensorData?['leaf_wetness']?.toString() ?? "--";
-    
-    double maxWetness = 0.0;
-    double avgWetness = 0.0;
+    double currentTemp = widget.sensorData?['surface_temp'] ?? 0.0;
+    double maxTemp = 0.0;
+    double minTemp = 0.0;
     String maxTime = "--";
-
+    String minTime = "--";
+    
     if (_graphData.isNotEmpty) {
       final maxPoint = _graphData.reduce((curr, next) => curr.value > next.value ? curr : next);
-      maxWetness = maxPoint.value;
+      maxTemp = maxPoint.value;
       maxTime = DateFormat('hh:mm a').format(maxPoint.time);
-      
-      avgWetness = _graphData.map((e) => e.value).reduce((a, b) => a + b) / _graphData.length;
+
+      final minPoint = _graphData.reduce((curr, next) => curr.value < next.value ? curr : next);
+      minTemp = minPoint.value;
+      minTime = DateFormat('hh:mm a').format(minPoint.time);
+
+      if (_selectedRange != 'daily') {
+        currentTemp = _graphData.last.value;
+      }
+    } else {
+      maxTemp = currentTemp; 
+      minTemp = currentTemp;
     }
 
     return Scaffold(
@@ -172,7 +184,7 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          "Leaf Wetness Analysis",
+          "Surface Temperature",
           style: GoogleFonts.inter(
             color: Colors.black87,
             fontWeight: FontWeight.bold,
@@ -191,7 +203,7 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
             MaterialPageRoute(builder: (context) => const ChatScreen()),
           );
         },
-        backgroundColor: const Color(0xFF166534),
+        backgroundColor: const Color(0xFF166534), // Brand Green
         elevation: 4.0,
         shape: const CircleBorder(),
         child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
@@ -199,16 +211,15 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
 
       // --- Fixed Footer (Bottom Navigation Bar) ---
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0, // Set to 0 (Home)
+        currentIndex: 0, // Set to 0 to indicate we are in the Home section
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF166534),
         unselectedItemColor: Colors.grey,
         showUnselectedLabels: true,
-        selectedLabelStyle:
-            GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12),
+        selectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12),
         unselectedLabelStyle: GoogleFonts.inter(fontSize: 12),
         onTap: (index) {
-          if (index == 2) return;
+          if (index == 2) return; // Ignore dummy center item
 
           if (index == 0) {
             Navigator.pop(context); // Go back to Dashboard
@@ -222,10 +233,10 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
           BottomNavigationBarItem(icon: Icon(LucideIcons.shieldCheck), label: "Protection"),
-          BottomNavigationBarItem(icon: SizedBox(height: 24), label: ""),
+          // --- Dummy Item for Spacing ---
+          BottomNavigationBarItem(icon: SizedBox(height: 24), label: ""), 
           BottomNavigationBarItem(icon: Icon(LucideIcons.layers), label: "Soil"),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.notifications_none), label: "Alerts"),
+          BottomNavigationBarItem(icon: Icon(Icons.notifications_none), label: "Alerts"),
         ],
       ),
 
@@ -238,33 +249,32 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFDCFCE7), // Light green tint
+                color: const Color(0xFFFFEBEE), // Red 50
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF86EFAC)),
+                border: Border.all(color: const Color(0xFFFFCDD2)), // Red 100
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Icon(LucideIcons.bot,
-                          size: 20, color: Color(0xFF15803D)),
+                      Icon(LucideIcons.bot, size: 20, color: _maroonColor), 
                       const SizedBox(width: 8),
                       Text(
                         "AI Insight",
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF15803D),
+                          color: _maroonColor,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "Prolonged leaf wetness increases the risk of Apple Scab and Fire Blight. Current status is '$currentStatus'. Monitor closely if wetness persists > 9 hours.",
+                    "Surface temperature affects germination and microbial activity. Current readings indicate moderate levels suitable for vegetative growth.",
                     style: GoogleFonts.inter(
                       fontSize: 13,
-                      color: const Color(0xFF166534),
+                      color: _maroonColor, 
                     ),
                   ),
                 ],
@@ -294,21 +304,21 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
               children: [
                 Expanded(
                   child: _buildStatBox(
-                    "Peak Wetness",
-                    "${maxWetness.toStringAsFixed(1)}", // Unit depends on sensor
-                    Icons.water_drop,
-                    Colors.blueAccent,
+                    "Max Surf Temp",
+                    "${maxTemp.toStringAsFixed(1)}°C",
+                    Icons.arrow_upward,
+                    _maroonColor,
                     maxTime,
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildStatBox(
-                    "Avg Wetness",
-                    "${avgWetness.toStringAsFixed(1)}",
-                    Icons.trending_up,
-                    Colors.green,
-                    _selectedRange == 'daily' ? "Today" : "Period",
+                    "Min Surf Temp",
+                    "${minTemp.toStringAsFixed(1)}°C",
+                    Icons.arrow_downward,
+                    Colors.orange[900]!,
+                    minTime,
                   ),
                 ),
               ],
@@ -334,7 +344,7 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Leaf Wetness Trend (${_getRangeLabel()})",
+                    "Surface Temperature Trend",
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -343,45 +353,31 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
-                    height: 250,
+                    height: 250, 
                     width: double.infinity,
-                    child: _isLoading
-                        ? const Center(
-                            child: CircularProgressIndicator(
-                                color: Color(0xFF166534)))
-                        : _errorMessage.isNotEmpty
-                            ? Center(
-                                child: Text(_errorMessage,
-                                    style: const TextStyle(color: Colors.red)))
-                            : CustomPaint(
-                                painter: _DetailedChartPainter(
+                    child: _isLoading 
+                      ? Center(child: CircularProgressIndicator(color: _maroonColor))
+                      : _errorMessage.isNotEmpty
+                          ? Center(child: Text(_errorMessage, style: const TextStyle(color: Colors.red)))
+                          : CustomPaint(
+                              painter: _SurfaceTempChartPainter(
                                   dataPoints: _graphData,
-                                  color: const Color(0xFF166534),
+                                  color: _maroonColor, 
                                   range: _selectedRange,
-                                ),
                               ),
+                            ),
                   ),
+                  const SizedBox(height: 16),
+                  // Labels are drawn by the painter
                 ],
               ),
             ),
-            const SizedBox(height: 40),
+            
+            const SizedBox(height: 40), 
           ],
         ),
       ),
     );
-  }
-
-  String _getRangeLabel() {
-    switch (_selectedRange) {
-      case 'daily':
-        return '24 Hours';
-      case 'weekly':
-        return '7 Days';
-      case 'monthly':
-        return '30 Days';
-      default:
-        return 'Trend';
-    }
   }
 
   Widget _buildTab(String text, String rangeKey) {
@@ -392,7 +388,7 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF166534) : Colors.transparent,
+            color: isSelected ? _maroonColor : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
@@ -409,8 +405,7 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
     );
   }
 
-  Widget _buildStatBox(
-      String title, String value, IconData icon, Color color, String time) {
+  Widget _buildStatBox(String title, String value, IconData icon, Color color, String time) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -432,12 +427,15 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Text(
-                value,
-                style: GoogleFonts.inter(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1F2937),
+              Flexible(
+                child: Text(
+                  value,
+                  style: GoogleFonts.inter(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF1F2937),
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 4),
@@ -458,13 +456,12 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
   }
 }
 
-// Custom Painter for the detailed curve chart with labels
-class _DetailedChartPainter extends CustomPainter {
+class _SurfaceTempChartPainter extends CustomPainter {
   final List<GraphPoint> dataPoints;
   final Color color;
   final String range;
 
-  _DetailedChartPainter({
+  _SurfaceTempChartPainter({
     required this.dataPoints, 
     required this.color,
     required this.range,
@@ -482,7 +479,7 @@ class _DetailedChartPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          color.withOpacity(0.2),
+          color.withOpacity(0.3),
           color.withOpacity(0.0),
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
@@ -534,7 +531,6 @@ class _DetailedChartPainter extends CustomPainter {
         return;
     } 
 
-    // --- Draw Y-Axis Labels ---
     double minVal = dataPoints.map((e) => e.value).reduce(min);
     double maxVal = dataPoints.map((e) => e.value).reduce(max);
     
@@ -546,6 +542,7 @@ class _DetailedChartPainter extends CustomPainter {
 
     final textStyle = TextStyle(color: Colors.grey[600], fontSize: 10, fontFamily: 'Inter');
 
+    // --- Draw Y-Axis Labels ---
     for (int i = 0; i <= 4; i++) {
       double value = minVal + (yRange * i / 4);
       double yPos = chartHeight - (chartHeight * i / 4);

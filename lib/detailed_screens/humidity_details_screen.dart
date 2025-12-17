@@ -49,7 +49,6 @@ class HumidityDetailsScreen extends StatefulWidget {
 }
 
 class _HumidityDetailsScreenState extends State<HumidityDetailsScreen> {
-  int _selectedIndex = 1; 
   String _selectedRange = 'daily'; 
   List<GraphPoint> _graphData = [];
   bool _isLoading = true;
@@ -189,9 +188,9 @@ class _HumidityDetailsScreenState extends State<HumidityDetailsScreen> {
           ),
         ),
         centerTitle: true,
-        // Removed actions (share button)
       ),
 
+      // --- Floating Action Button (Robot) Centered ---
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -206,8 +205,9 @@ class _HumidityDetailsScreenState extends State<HumidityDetailsScreen> {
         child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
       ),
 
+      // --- Fixed Footer (Bottom Navigation Bar) ---
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
+        currentIndex: 0, // Set to 0 (Home)
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF166534),
         unselectedItemColor: Colors.grey,
@@ -217,10 +217,8 @@ class _HumidityDetailsScreenState extends State<HumidityDetailsScreen> {
         onTap: (index) {
           if (index == 2) return; 
 
-          setState(() => _selectedIndex = index);
-
           if (index == 0) {
-            Navigator.pop(context); 
+            Navigator.pop(context); // Go back to Dashboard
           } else if (index == 4) {
             Navigator.push(
               context,
@@ -230,9 +228,10 @@ class _HumidityDetailsScreenState extends State<HumidityDetailsScreen> {
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.sensors), label: "Sensors"),
+          BottomNavigationBarItem(icon: Icon(LucideIcons.shieldCheck), label: "Protection"),
+          // --- Dummy Item for Spacing ---
           BottomNavigationBarItem(icon: SizedBox(height: 24), label: ""), 
-          BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: "Map"),
+          BottomNavigationBarItem(icon: Icon(LucideIcons.layers), label: "Soil"),
           BottomNavigationBarItem(icon: Icon(Icons.notifications_none), label: "Alerts"),
         ],
       ),
@@ -357,7 +356,7 @@ class _HumidityDetailsScreenState extends State<HumidityDetailsScreen> {
                       : _errorMessage.isNotEmpty
                           ? Center(child: Text(_errorMessage, style: const TextStyle(color: Colors.red)))
                           : CustomPaint(
-                              painter: _DetailedChartPainter(
+                              painter: _HumidityChartPainter(
                                   dataPoints: _graphData,
                                   color: Colors.blue, // Blue graph for humidity
                                   range: _selectedRange,
@@ -368,30 +367,6 @@ class _HumidityDetailsScreenState extends State<HumidityDetailsScreen> {
               ),
             ),
             
-            const SizedBox(height: 24),
-
-            // Additional Details
-            Row(
-              children: [
-                Expanded(
-                  child: _buildInfoCard(
-                    "Dew Point",
-                    "18.5°C", // Requires calculation, static for now
-                    LucideIcons.droplets,
-                    Colors.indigo,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildInfoCard(
-                    "Vapor Pressure",
-                    "1.8 kPa", // Requires calculation, static for now
-                    LucideIcons.cloudFog,
-                    Colors.blueGrey,
-                  ),
-                ),
-              ],
-            ),
             const SizedBox(height: 40), 
           ],
         ),
@@ -479,51 +454,15 @@ class _HumidityDetailsScreenState extends State<HumidityDetailsScreen> {
       ),
     );
   }
-
-  Widget _buildInfoCard(String title, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: Colors.grey[700],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Text(
-                value,
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-class _DetailedChartPainter extends CustomPainter {
+// Custom Painter for Humidity (Blue Theme)
+class _HumidityChartPainter extends CustomPainter {
   final List<GraphPoint> dataPoints;
   final Color color;
   final String range;
 
-  _DetailedChartPainter({
+  _HumidityChartPainter({
     required this.dataPoints, 
     required this.color,
     required this.range,
@@ -552,6 +491,7 @@ class _DetailedChartPainter extends CustomPainter {
     final double chartWidth = size.width - leftMargin;
     final double chartHeight = size.height - bottomMargin;
 
+    // --- Draw X-Axis Labels ---
     if (dataPoints.isNotEmpty) {
       final textStyle = TextStyle(color: Colors.grey[600], fontSize: 10, fontFamily: 'Inter');
       final firstTime = dataPoints.first.time;
@@ -568,7 +508,7 @@ class _DetailedChartPainter extends CustomPainter {
         } else if (range == 'weekly') {
            labelText = DateFormat('E').format(labelTime); 
         } else {
-           labelText = DateFormat('d/M').format(labelTime);
+           labelText = DateFormat('d/M').format(labelTime); 
         }
 
         final textSpan = TextSpan(text: labelText, style: textStyle);
@@ -576,6 +516,7 @@ class _DetailedChartPainter extends CustomPainter {
         textPainter.layout();
         
         double xPos = leftMargin + (chartWidth * percent) - (textPainter.width / 2);
+        
         if (i == 0) xPos = leftMargin;
         if (i == 4) xPos = size.width - textPainter.width;
 
@@ -594,9 +535,10 @@ class _DetailedChartPainter extends CustomPainter {
     double minVal = dataPoints.map((e) => e.value).reduce(min);
     double maxVal = dataPoints.map((e) => e.value).reduce(max);
     
+    // Add buffer
     minVal = (minVal - 5).floorToDouble();
-    maxVal = (maxVal + 5).ceilToDouble();
     if (minVal < 0) minVal = 0;
+    maxVal = (maxVal + 5).ceilToDouble();
     if (maxVal > 100) maxVal = 100;
     
     double yRange = maxVal - minVal;

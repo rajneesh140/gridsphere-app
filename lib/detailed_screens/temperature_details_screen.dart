@@ -49,7 +49,6 @@ class TemperatureDetailsScreen extends StatefulWidget {
 }
 
 class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
-  int _selectedIndex = 1; 
   String _selectedRange = 'daily'; 
   List<GraphPoint> _graphData = [];
   bool _isLoading = true;
@@ -94,6 +93,7 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
           List<GraphPoint> points = [];
 
           for (var r in readings) {
+            // Parse Value
             double val = double.tryParse(r['temp'].toString()) ?? 0.0;
             
             DateTime time;
@@ -101,7 +101,7 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
               try {
                 time = DateTime.parse(r['timestamp'].toString());
               } catch (e) {
-                time = DateTime.now(); 
+                time = DateTime.now(); // Fallback
               }
             } else {
               time = DateTime.now();
@@ -110,6 +110,7 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
             points.add(GraphPoint(time: time, value: val));
           }
 
+          // Sort by time ascending (Oldest -> Newest) for the graph
           points.sort((a, b) => a.time.compareTo(b.time));
 
           if (mounted) {
@@ -155,14 +156,17 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
     String minTime = "--";
     
     if (_graphData.isNotEmpty) {
+      // Find Max Point
       final maxPoint = _graphData.reduce((curr, next) => curr.value > next.value ? curr : next);
       maxTemp = maxPoint.value;
       maxTime = DateFormat('hh:mm a').format(maxPoint.time);
 
+      // Find Min Point
       final minPoint = _graphData.reduce((curr, next) => curr.value < next.value ? curr : next);
       minTemp = minPoint.value;
       minTime = DateFormat('hh:mm a').format(minPoint.time);
 
+      // Current temp is the last point
       if (_selectedRange != 'daily') {
         currentTemp = _graphData.last.value;
       }
@@ -170,8 +174,6 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
       maxTemp = currentTemp; 
       minTemp = currentTemp;
     }
-
-    final double soilTemp = widget.sensorData?['soil_temp'] ?? 0.0;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -191,9 +193,9 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
           ),
         ),
         centerTitle: true,
-        // Removed actions (share button)
       ),
 
+      // --- Floating Action Button (Robot) Centered ---
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -208,8 +210,9 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
         child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
       ),
 
+      // --- Fixed Footer (Bottom Navigation Bar) ---
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
+        currentIndex: 0, // Set to 0 (Home)
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF166534),
         unselectedItemColor: Colors.grey,
@@ -219,10 +222,8 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
         onTap: (index) {
           if (index == 2) return; 
 
-          setState(() => _selectedIndex = index);
-
           if (index == 0) {
-            Navigator.pop(context); 
+            Navigator.pop(context); // Go back to Dashboard
           } else if (index == 4) {
             Navigator.push(
               context,
@@ -232,9 +233,10 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.sensors), label: "Sensors"),
+          BottomNavigationBarItem(icon: Icon(LucideIcons.shieldCheck), label: "Protection"),
+          // --- Dummy Item for Spacing ---
           BottomNavigationBarItem(icon: SizedBox(height: 24), label: ""), 
-          BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: "Map"),
+          BottomNavigationBarItem(icon: Icon(LucideIcons.layers), label: "Soil"),
           BottomNavigationBarItem(icon: Icon(Icons.notifications_none), label: "Alerts"),
         ],
       ),
@@ -244,6 +246,7 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // AI Insight Card
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -280,6 +283,7 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
             ),
             const SizedBox(height: 24),
 
+            // Time Filter Tabs
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
@@ -296,6 +300,7 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
             ),
             const SizedBox(height: 24),
 
+            // Main Stats
             Row(
               children: [
                 Expanded(
@@ -321,6 +326,7 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
             ),
             const SizedBox(height: 24),
 
+            // Chart Section
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -366,29 +372,6 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
               ),
             ),
             
-            const SizedBox(height: 24),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _buildInfoCard(
-                    "Soil Temperature",
-                    "${soilTemp.toStringAsFixed(1)}°C",
-                    LucideIcons.thermometer,
-                    Colors.orange,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildInfoCard(
-                    "Growing Deg Days",
-                    "14.5 °Cd",
-                    LucideIcons.sun,
-                    Colors.amber,
-                  ),
-                ),
-              ],
-            ),
             const SizedBox(height: 40), 
           ],
         ),
@@ -467,45 +450,9 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
       ),
     );
   }
-
-  Widget _buildInfoCard(String title, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: Colors.grey[700],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Text(
-                value,
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
+// Custom Painter for the detailed curve chart with labels
 class _DetailedChartPainter extends CustomPainter {
   final List<GraphPoint> dataPoints;
   final Color color;
@@ -540,6 +487,7 @@ class _DetailedChartPainter extends CustomPainter {
     final double chartWidth = size.width - leftMargin;
     final double chartHeight = size.height - bottomMargin;
 
+    // --- Draw X-Axis Labels ---
     if (dataPoints.isNotEmpty) {
       final textStyle = TextStyle(color: Colors.grey[600], fontSize: 10, fontFamily: 'Inter');
       final firstTime = dataPoints.first.time;
@@ -580,9 +528,11 @@ class _DetailedChartPainter extends CustomPainter {
         return;
     } 
 
+    // --- Draw Y-Axis Labels ---
     double minVal = dataPoints.map((e) => e.value).reduce(min);
     double maxVal = dataPoints.map((e) => e.value).reduce(max);
     
+    // Add buffer
     minVal = (minVal - 2).floorToDouble();
     maxVal = (maxVal + 2).ceilToDouble();
     double yRange = maxVal - minVal;
@@ -594,7 +544,7 @@ class _DetailedChartPainter extends CustomPainter {
       double value = minVal + (yRange * i / 4);
       double yPos = chartHeight - (chartHeight * i / 4);
       
-      final textSpan = TextSpan(text: value.toStringAsFixed(0), style: textStyle);
+      final textSpan = TextSpan(text: value.toStringAsFixed(1), style: textStyle);
       final textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr);
       textPainter.layout();
       textPainter.paint(canvas, Offset(0, yPos - textPainter.height / 2));
@@ -636,14 +586,6 @@ class _DetailedChartPainter extends CustomPainter {
       ..close();
     canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(path, paint);
-
-    final rangePaint = Paint()
-      ..color = Colors.blue.withOpacity(0.05)
-      ..style = PaintingStyle.fill;
-    canvas.drawRect(
-      Rect.fromLTWH(leftMargin, chartHeight * 0.3, chartWidth, chartHeight * 0.4), 
-      rangePaint
-    );
   }
 
   @override
