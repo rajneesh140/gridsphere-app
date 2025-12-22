@@ -3,9 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math';
-import 'package:intl/intl.dart' hide TextDirection; 
-import '../screens/chat_screen.dart';   
-import '../screens/alerts_screen.dart'; 
+import 'package:intl/intl.dart' hide TextDirection;
 
 class GoogleFonts {
   static TextStyle inter({
@@ -37,8 +35,8 @@ class RainfallDetailsScreen extends StatefulWidget {
   final String sessionCookie;
 
   const RainfallDetailsScreen({
-    super.key, 
-    this.sensorData, 
+    super.key,
+    this.sensorData,
     required this.deviceId,
     required this.sessionCookie,
   });
@@ -48,8 +46,7 @@ class RainfallDetailsScreen extends StatefulWidget {
 }
 
 class _RainfallDetailsScreenState extends State<RainfallDetailsScreen> {
-  // _selectedIndex is not needed if we are mimicking Temperature screen which stays at 0
-  String _selectedRange = 'daily'; 
+  String _selectedRange = 'daily';
   List<GraphPoint> _graphData = [];
   bool _isLoading = true;
   String _errorMessage = '';
@@ -57,7 +54,7 @@ class _RainfallDetailsScreenState extends State<RainfallDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchHistoryData('daily'); 
+    _fetchHistoryData('daily');
   }
 
   Future<void> _fetchHistoryData(String range) async {
@@ -67,7 +64,8 @@ class _RainfallDetailsScreenState extends State<RainfallDetailsScreen> {
       _errorMessage = '';
     });
 
-    final url = Uri.parse("https://gridsphere.in/station/api/devices/${widget.deviceId}/history?range=$range");
+    final url = Uri.parse(
+        "https://gridsphere.in/station/api/devices/${widget.deviceId}/history?range=$range");
 
     try {
       final response = await http.get(
@@ -94,13 +92,13 @@ class _RainfallDetailsScreenState extends State<RainfallDetailsScreen> {
 
           for (var r in readings) {
             double val = double.tryParse(r['rainfall'].toString()) ?? 0.0;
-            
+
             DateTime time;
             if (r['timestamp'] != null) {
               try {
                 time = DateTime.parse(r['timestamp'].toString());
               } catch (e) {
-                time = DateTime.now(); 
+                time = DateTime.now();
               }
             } else {
               time = DateTime.now();
@@ -150,19 +148,18 @@ class _RainfallDetailsScreenState extends State<RainfallDetailsScreen> {
     double totalRainfall = 0.0;
     double maxIntensity = 0.0;
     String maxTime = "--";
-    
+
     if (_graphData.isNotEmpty) {
-      // For rainfall, we often want the Sum (Total) and Max (Peak)
       totalRainfall = _graphData.fold(0.0, (sum, item) => sum + item.value);
-      
-      final maxPoint = _graphData.reduce((curr, next) => curr.value > next.value ? curr : next);
+
+      final maxPoint = _graphData
+          .reduce((curr, next) => curr.value > next.value ? curr : next);
       maxIntensity = maxPoint.value;
       maxTime = DateFormat('hh:mm a').format(maxPoint.time);
     } else {
-      // Fallback to dashboard snapshot if history fails
       totalRainfall = widget.sensorData?['rainfall'] ?? 0.0;
     }
-    
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -183,50 +180,7 @@ class _RainfallDetailsScreenState extends State<RainfallDetailsScreen> {
         centerTitle: true,
       ),
 
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ChatScreen()),
-          );
-        },
-        backgroundColor: const Color(0xFF166534), 
-        elevation: 4.0,
-        shape: const CircleBorder(),
-        child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
-      ),
-
-      // --- Fixed Footer (Bottom Navigation Bar) Matching Temperature Screen ---
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0, // Set to 0 (Home)
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF166534),
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        selectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12),
-        unselectedLabelStyle: GoogleFonts.inter(fontSize: 12),
-        onTap: (index) {
-          if (index == 2) return; 
-
-          if (index == 0) {
-            Navigator.pop(context); // Go back to Dashboard
-          } else if (index == 4) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AlertsScreen()),
-            );
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(LucideIcons.shieldCheck), label: "Protection"),
-          // --- Dummy Item for Spacing ---
-          BottomNavigationBarItem(icon: SizedBox(height: 24), label: ""), 
-          BottomNavigationBarItem(icon: Icon(LucideIcons.layers), label: "Soil"),
-          BottomNavigationBarItem(icon: Icon(Icons.notifications_none), label: "Alerts"),
-        ],
-      ),
+      // Floating Action Button and Bottom Navigation removed to match other detail screens
 
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -246,7 +200,8 @@ class _RainfallDetailsScreenState extends State<RainfallDetailsScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(LucideIcons.bot, size: 20, color: Color(0xFF0369A1)),
+                      const Icon(LucideIcons.bot,
+                          size: 20, color: Color(0xFF0369A1)),
                       const SizedBox(width: 8),
                       Text(
                         "AI Insight",
@@ -259,9 +214,9 @@ class _RainfallDetailsScreenState extends State<RainfallDetailsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    totalRainfall > 0 
-                      ? "Rainfall detected. Ensure drainage systems are clear. Monitor soil moisture levels to prevent waterlogging."
-                      : "No rainfall detected recently. Irrigation may be required based on soil moisture levels.",
+                    totalRainfall > 0
+                        ? "Rainfall detected. Ensure drainage systems are clear. Monitor soil moisture levels to prevent waterlogging."
+                        : "No rainfall detected recently. Irrigation may be required based on soil moisture levels.",
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       color: const Color(0xFF0C4A6E),
@@ -343,26 +298,27 @@ class _RainfallDetailsScreenState extends State<RainfallDetailsScreen> {
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
-                    height: 250, 
+                    height: 250,
                     width: double.infinity,
-                    child: _isLoading 
-                      ? const Center(child: CircularProgressIndicator(color: Colors.blue))
-                      : _errorMessage.isNotEmpty
-                          ? Center(child: Text(_errorMessage, style: const TextStyle(color: Colors.red)))
-                          : CustomPaint(
-                              painter: _DetailedChartPainter(
+                    child: _isLoading
+                        ? const Center(
+                            child: CircularProgressIndicator(color: Colors.blue))
+                        : _errorMessage.isNotEmpty
+                            ? Center(
+                                child: Text(_errorMessage,
+                                    style: const TextStyle(color: Colors.red)))
+                            : CustomPaint(
+                                painter: _DetailedChartPainter(
                                   dataPoints: _graphData,
                                   color: Colors.blueAccent,
                                   range: _selectedRange,
+                                ),
                               ),
-                            ),
                   ),
                 ],
               ),
             ),
-            
-            // --- REMOVED MOCK DETAILS FROM HERE ---
-            const SizedBox(height: 40), 
+            const SizedBox(height: 40),
           ],
         ),
       ),
@@ -371,10 +327,14 @@ class _RainfallDetailsScreenState extends State<RainfallDetailsScreen> {
 
   String _getRangeLabel() {
     switch (_selectedRange) {
-      case 'daily': return '24 Hours';
-      case 'weekly': return '7 Days';
-      case 'monthly': return '30 Days';
-      default: return 'Trend';
+      case 'daily':
+        return '24 Hours';
+      case 'weekly':
+        return '7 Days';
+      case 'monthly':
+        return '30 Days';
+      default:
+        return 'Trend';
     }
   }
 
@@ -403,7 +363,8 @@ class _RainfallDetailsScreenState extends State<RainfallDetailsScreen> {
     );
   }
 
-  Widget _buildStatBox(String title, String value, IconData icon, Color color, String time) {
+  Widget _buildStatBox(
+      String title, String value, IconData icon, Color color, String time) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -451,14 +412,13 @@ class _RainfallDetailsScreenState extends State<RainfallDetailsScreen> {
   }
 }
 
-// Custom Painter for Rainfall
 class _DetailedChartPainter extends CustomPainter {
   final List<GraphPoint> dataPoints;
   final Color color;
   final String range;
 
   _DetailedChartPainter({
-    required this.dataPoints, 
+    required this.dataPoints,
     required this.color,
     required this.range,
   });
@@ -487,30 +447,33 @@ class _DetailedChartPainter extends CustomPainter {
     final double chartHeight = size.height - bottomMargin;
 
     if (dataPoints.isNotEmpty) {
-      final textStyle = TextStyle(color: Colors.grey[600], fontSize: 10, fontFamily: 'Inter');
+      final textStyle = TextStyle(
+          color: Colors.grey[600], fontSize: 10, fontFamily: 'Inter');
       final firstTime = dataPoints.first.time;
       final lastTime = dataPoints.last.time;
       final totalDuration = lastTime.difference(firstTime).inMinutes;
 
       for (int i = 0; i <= 4; i++) {
         double percent = i / 4.0;
-        DateTime labelTime = firstTime.add(Duration(minutes: (totalDuration * percent).toInt()));
-        
+        DateTime labelTime =
+            firstTime.add(Duration(minutes: (totalDuration * percent).toInt()));
+
         String labelText = "";
         if (range == 'daily') {
-           labelText = DateFormat('HH:mm').format(labelTime);
+          labelText = DateFormat('HH:mm').format(labelTime);
         } else if (range == 'weekly') {
-           labelText = DateFormat('E').format(labelTime); 
+          labelText = DateFormat('E').format(labelTime);
         } else {
-           labelText = DateFormat('d/M').format(labelTime); 
+          labelText = DateFormat('d/M').format(labelTime);
         }
 
         final textSpan = TextSpan(text: labelText, style: textStyle);
-        final textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr);
+        final textPainter =
+            TextPainter(text: textSpan, textDirection: TextDirection.ltr);
         textPainter.layout();
-        
+
         double xPos = leftMargin + (chartWidth * percent) - (textPainter.width / 2);
-        
+
         if (i == 0) xPos = leftMargin;
         if (i == 4) xPos = size.width - textPainter.width;
 
@@ -519,37 +482,42 @@ class _DetailedChartPainter extends CustomPainter {
     }
 
     if (dataPoints.isEmpty) {
-        final path = Path();
-        path.moveTo(leftMargin, chartHeight / 2);
-        path.lineTo(size.width, chartHeight / 2);
-        canvas.drawPath(path, paint);
-        return;
-    } 
+      final path = Path();
+      path.moveTo(leftMargin, chartHeight / 2);
+      path.lineTo(size.width, chartHeight / 2);
+      canvas.drawPath(path, paint);
+      return;
+    }
 
-    double minVal = 0.0; // Rainfall usually starts at 0
+    double minVal = 0.0;
     double maxVal = dataPoints.map((e) => e.value).reduce(max);
-    
-    if (maxVal == 0) maxVal = 10; // Default range if no rain
-    else maxVal = (maxVal * 1.2).ceilToDouble(); // Add headroom
-    
+
+    if (maxVal == 0)
+      maxVal = 10;
+    else
+      maxVal = (maxVal * 1.2).ceilToDouble();
+
     double yRange = maxVal - minVal;
 
-    final textStyle = TextStyle(color: Colors.grey[600], fontSize: 10, fontFamily: 'Inter');
+    final textStyle = TextStyle(
+        color: Colors.grey[600], fontSize: 10, fontFamily: 'Inter');
 
-    // Draw Y Axis
     for (int i = 0; i <= 4; i++) {
       double value = minVal + (yRange * i / 4);
       double yPos = chartHeight - (chartHeight * i / 4);
-      
-      final textSpan = TextSpan(text: value.toStringAsFixed(1), style: textStyle);
-      final textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr);
+
+      final textSpan =
+          TextSpan(text: value.toStringAsFixed(1), style: textStyle);
+      final textPainter =
+          TextPainter(text: textSpan, textDirection: TextDirection.ltr);
       textPainter.layout();
       textPainter.paint(canvas, Offset(0, yPos - textPainter.height / 2));
 
       final gridPaint = Paint()
         ..color = Colors.grey.shade200
         ..strokeWidth = 1;
-      canvas.drawLine(Offset(leftMargin, yPos), Offset(size.width, yPos), gridPaint);
+      canvas.drawLine(
+          Offset(leftMargin, yPos), Offset(size.width, yPos), gridPaint);
     }
 
     final path = Path();
@@ -557,24 +525,24 @@ class _DetailedChartPainter extends CustomPainter {
     final totalDuration = dataPoints.last.time.difference(firstTime).inMinutes;
 
     for (int i = 0; i < dataPoints.length; i++) {
-        final point = dataPoints[i];
-        
-        double timeDiff = point.time.difference(firstTime).inMinutes.toDouble();
-        double x = leftMargin;
-         if (totalDuration > 0) {
-            x += ((timeDiff / totalDuration) * chartWidth);
-        } else {
-            x += chartWidth / 2;
-        }
-        
-        double normalizedY = (point.value - minVal) / yRange;
-        double y = chartHeight - (normalizedY * chartHeight);
-        
-        if (i == 0) {
-            path.moveTo(x, y);
-        } else {
-            path.lineTo(x, y);
-        }
+      final point = dataPoints[i];
+
+      double timeDiff = point.time.difference(firstTime).inMinutes.toDouble();
+      double x = leftMargin;
+      if (totalDuration > 0) {
+        x += ((timeDiff / totalDuration) * chartWidth);
+      } else {
+        x += chartWidth / 2;
+      }
+
+      double normalizedY = (point.value - minVal) / yRange;
+      double y = chartHeight - (normalizedY * chartHeight);
+
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
     }
 
     final fillPath = Path.from(path)

@@ -4,8 +4,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math';
 import 'package:intl/intl.dart' hide TextDirection; 
-import '../screens/chat_screen.dart';   
-import '../screens/alerts_screen.dart'; 
 
 class GoogleFonts {
   static TextStyle inter({
@@ -66,24 +64,6 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
       _selectedRange = range;
       _errorMessage = '';
     });
-
-    // Use simple range query parameter: 24h, 7d, 30d
-    // Map custom tabs to API expected values if needed, but assuming API accepts '24h', '7d', '30d' directly or similar
-    // Based on previous valid code, it seems the API might expect 'daily', 'weekly', 'monthly' or '24h' etc.
-    // Let's assume 'daily' = 24h, 'weekly' = 7d, 'monthly' = 30d for the API call based on typical conventions or revert to exact previous working state.
-    // The previous working state used 'daily', 'weekly', 'monthly' in the tabs but '24h' logic here.
-    // Let's stick to the tab values: '24h', '7d', '30d' and map them if necessary.
-    
-    // Mapping for API:
-    // If API expects 'daily', 'weekly', 'monthly':
-    // String apiRange = 'daily';
-    // if (range == '7d') apiRange = 'weekly';
-    // if (range == '30d') apiRange = 'monthly';
-    
-    // Or if API handles '24h', '7d' etc directly. 
-    // Reverting to the logic that likely worked before or standard query.
-    // Let's use the exact values from the tabs directly in the URL if the backend supports it, 
-    // or map them to 'daily', 'weekly', 'monthly' which is safer for many backends.
     
     String apiRange = 'daily';
     if (range == '7d') apiRange = 'weekly';
@@ -115,7 +95,6 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
           List<GraphPoint> points = [];
 
           for (var r in readings) {
-            // Parse Value
             double val = double.tryParse(r['temp'].toString()) ?? 0.0;
             
             DateTime time;
@@ -123,7 +102,7 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
               try {
                 time = DateTime.parse(r['timestamp'].toString());
               } catch (e) {
-                time = DateTime.now(); // Fallback
+                time = DateTime.now(); 
               }
             } else {
               time = DateTime.now();
@@ -132,7 +111,6 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
             points.add(GraphPoint(time: time, value: val));
           }
 
-          // Sort by time ascending (Oldest -> Newest) for the graph
           points.sort((a, b) => a.time.compareTo(b.time));
 
           if (mounted) {
@@ -154,17 +132,10 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
         if (mounted) {
           setState(() {
             _isLoading = false;
-            // Use mock data if server fails (common for 500 in dev) or show friendly error
-            // _errorMessage = "Server error: ${response.statusCode}";
-            
             // --- FALLBACK MOCK DATA ON ERROR ---
             final random = Random();
             List<GraphPoint> mockPoints = [];
-            
-            // Determine end time (now)
             DateTime endDate = DateTime.now();
-            
-            // Revert point count logic
             int pointsCount = range == '24h' ? 24 : (range == '7d' ? 7 : 30);
 
             for (int i = 0; i < pointsCount; i++) {
@@ -174,11 +145,7 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
                } else {
                   time = endDate.subtract(Duration(days: i));
                }
-               
-               // Create a base curve
                double base = 25.0 + 5 * sin(i * 0.5); 
-               
-               // Add LARGER random noise for 7d/30d to make it look less smooth
                double noiseRange = (range == '7d' || range == '30d') ? 5.0 : 2.0;
                double noise = (random.nextDouble() - 0.5) * noiseRange;
                
@@ -189,7 +156,7 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
             }
             mockPoints.sort((a, b) => a.time.compareTo(b.time));
             _graphData = mockPoints;
-            _errorMessage = ""; // Clear error since we have fallback
+            _errorMessage = ""; 
           });
         }
       }
@@ -197,14 +164,10 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          // _errorMessage = "Connection error";
            // --- FALLBACK MOCK DATA ON EXCEPTION ---
             final random = Random();
             List<GraphPoint> mockPoints = [];
-            
-            // Determine end time (now)
             DateTime endDate = DateTime.now();
-            
             int pointsCount = range == '24h' ? 24 : (range == '7d' ? 7 : 30);
             
             for (int i = 0; i < pointsCount; i++) {
@@ -214,11 +177,7 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
                } else {
                   time = endDate.subtract(Duration(days: i));
                }
-               
-               // Smoother fallback data generation
                double base = 22.0 + 4 * sin(i * 0.3);
-               
-               // Add LARGER random noise for 7d/30d
                double noiseRange = (range == '7d' || range == '30d') ? 4.0 : 1.5;
                double noise = (random.nextDouble() - 0.5) * noiseRange;
 
@@ -245,17 +204,14 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
     String minTime = "--";
     
     if (_graphData.isNotEmpty) {
-      // Find Max Point
       final maxPoint = _graphData.reduce((curr, next) => curr.value > next.value ? curr : next);
       maxTemp = maxPoint.value;
       maxTime = DateFormat('MM/dd hh:mm a').format(maxPoint.time);
 
-      // Find Min Point
       final minPoint = _graphData.reduce((curr, next) => curr.value < next.value ? curr : next);
       minTemp = minPoint.value;
       minTime = DateFormat('MM/dd hh:mm a').format(minPoint.time);
 
-      // Current temp is the last point
       if (_selectedRange != '24h') {
         currentTemp = _graphData.last.value;
       }
@@ -282,52 +238,6 @@ class _TemperatureDetailsScreenState extends State<TemperatureDetailsScreen> {
           ),
         ),
         centerTitle: true,
-      ),
-
-      // --- Floating Action Button (Robot) Centered ---
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ChatScreen()),
-          );
-        },
-        backgroundColor: const Color(0xFF166534), 
-        elevation: 4.0,
-        shape: const CircleBorder(),
-        child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
-      ),
-
-      // --- Fixed Footer (Bottom Navigation Bar) ---
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0, // Set to 0 (Home)
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF166534),
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        selectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12),
-        unselectedLabelStyle: GoogleFonts.inter(fontSize: 12),
-        onTap: (index) {
-          if (index == 2) return; 
-
-          if (index == 0) {
-            Navigator.pop(context); // Go back to Dashboard
-          } else if (index == 4) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AlertsScreen()),
-            );
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(LucideIcons.shieldCheck), label: "Protection"),
-          // --- Dummy Item for Spacing ---
-          BottomNavigationBarItem(icon: SizedBox(height: 24), label: ""), 
-          BottomNavigationBarItem(icon: Icon(LucideIcons.layers), label: "Soil"),
-          BottomNavigationBarItem(icon: Icon(Icons.notifications_none), label: "Alerts"),
-        ],
       ),
 
       body: SingleChildScrollView(
@@ -669,12 +579,8 @@ class _DetailedChartPainter extends CustomPainter {
         if (i == 0) {
             path.moveTo(x, y);
         } else {
-            // Use straight lines for exact points instead of smoothing
             path.lineTo(x, y);
         }
-        
-        // Removed point drawing
-        // canvas.drawCircle(Offset(x, y), 3, Paint()..color = color..style = PaintingStyle.fill);
     }
 
     final fillPath = Path.from(path)

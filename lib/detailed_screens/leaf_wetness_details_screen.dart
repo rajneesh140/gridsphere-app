@@ -4,8 +4,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math';
 import 'package:intl/intl.dart' hide TextDirection;
-import '../screens/chat_screen.dart';
-import '../screens/alerts_screen.dart';
 
 class GoogleFonts {
   static TextStyle inter({
@@ -182,52 +180,7 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
         centerTitle: true,
       ),
 
-      // --- Floating Action Button (Robot) Centered ---
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ChatScreen()),
-          );
-        },
-        backgroundColor: const Color(0xFF166534),
-        elevation: 4.0,
-        shape: const CircleBorder(),
-        child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
-      ),
-
-      // --- Fixed Footer (Bottom Navigation Bar) ---
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0, // Set to 0 (Home)
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF166534),
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        selectedLabelStyle:
-            GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12),
-        unselectedLabelStyle: GoogleFonts.inter(fontSize: 12),
-        onTap: (index) {
-          if (index == 2) return;
-
-          if (index == 0) {
-            Navigator.pop(context); // Go back to Dashboard
-          } else if (index == 4) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AlertsScreen()),
-            );
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(LucideIcons.shieldCheck), label: "Protection"),
-          BottomNavigationBarItem(icon: SizedBox(height: 24), label: ""),
-          BottomNavigationBarItem(icon: Icon(LucideIcons.layers), label: "Soil"),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.notifications_none), label: "Alerts"),
-        ],
-      ),
+      // Floating Action Button and Bottom Navigation removed to match other detail screens
 
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -458,7 +411,6 @@ class _LeafWetnessDetailsScreenState extends State<LeafWetnessDetailsScreen> {
   }
 }
 
-// Custom Painter for the detailed curve chart with labels
 class _DetailedChartPainter extends CustomPainter {
   final List<GraphPoint> dataPoints;
   final Color color;
@@ -493,7 +445,6 @@ class _DetailedChartPainter extends CustomPainter {
     final double chartWidth = size.width - leftMargin;
     final double chartHeight = size.height - bottomMargin;
 
-    // --- Draw X-Axis Labels ---
     if (dataPoints.isNotEmpty) {
       final textStyle = TextStyle(color: Colors.grey[600], fontSize: 10, fontFamily: 'Inter');
       final firstTime = dataPoints.first.time;
@@ -534,11 +485,9 @@ class _DetailedChartPainter extends CustomPainter {
         return;
     } 
 
-    // --- Draw Y-Axis Labels ---
     double minVal = dataPoints.map((e) => e.value).reduce(min);
     double maxVal = dataPoints.map((e) => e.value).reduce(max);
     
-    // Add buffer
     minVal = (minVal - 2).floorToDouble();
     maxVal = (maxVal + 2).ceilToDouble();
     double yRange = maxVal - minVal;

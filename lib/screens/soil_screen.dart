@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:http/http.dart' as http; // Added http
+import 'dart:convert'; // Added json
 import 'chat_screen.dart';
 import 'alerts_screen.dart';
-// Import detailed screens to link to them or use their logic if needed
-import '../detailed_screens/depth_temperature_details_screen.dart';
-import '../detailed_screens/depth_humidity_details_screen.dart';
-import '../detailed_screens/surface_temperature_details_screen.dart';
-import '../detailed_screens/surface_humidity_details_screen.dart';
+// Detailed screens imports removed as they are no longer linked in the new design
+import 'dart:math'; // For fallback mock data
+import 'package:intl/intl.dart'; // For formatting time
 
 class GoogleFonts {
   static TextStyle inter({
@@ -31,12 +31,16 @@ class SoilScreen extends StatefulWidget {
   final String sessionCookie;
   final String deviceId; // To fetch data if needed
   final Map<String, dynamic>? sensorData; // To display current values immediately
+  final double latitude;
+  final double longitude;
 
   const SoilScreen({
     super.key, 
     required this.sessionCookie,
     this.deviceId = "",
     this.sensorData,
+    this.latitude = 0.0,
+    this.longitude = 0.0,
   });
 
   @override
@@ -47,10 +51,135 @@ class _SoilScreenState extends State<SoilScreen> with SingleTickerProviderStateM
   late TabController _tabController;
   int _selectedIndex = 3; // 3 corresponds to "Soil" in BottomNavBar
 
+  // Mock data for spray timing
+  List<Map<String, dynamic>> _sprayForecast = [];
+  bool _isLoadingForecast = true;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // Use API if lat/lon available, else fallback
+    if (widget.latitude != 0.0 && widget.longitude != 0.0) {
+      _fetchForecastData();
+    } else {
+      _generateMockSprayData();
+    }
+  }
+
+  Future<void> _fetchForecastData() async {
+    final apiKey = "371b716c25a9e70d9b96b6dc52443a7a";
+    // cnt=8 gives 24 hours (8 * 3 hours) from the API.
+    // We will use these 3-hour blocks directly.
+    final url = Uri.parse("https://api.openweathermap.org/data/2.5/forecast?lat=${widget.latitude}&lon=${widget.longitude}&cnt=8&appid=$apiKey&units=metric"); 
+
+    try {
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<dynamic> list = data['list'];
+        
+        List<Map<String, dynamic>> forecast = [];
+        
+        for (var item in list) {
+           DateTime time = DateTime.fromMillisecondsSinceEpoch(item['dt'] * 1000);
+           
+           double temp = (item['main']['temp'] as num).toDouble();
+           double humidity = (item['main']['humidity'] as num).toDouble();
+           
+           // Wind speed from API is in m/s (metric)
+           double windSpeedMps = (item['wind']['speed'] as num).toDouble();
+           double windSpeedKph = windSpeedMps * 3.6; 
+           
+           String weatherDesc = "";
+           if (item['weather'] != null && (item['weather'] as List).isNotEmpty) {
+             weatherDesc = item['weather'][0]['description'].toString().toLowerCase();
+           }
+           
+           // Logic: No Spray if Rain or Wind > 3 m/s
+           bool isRaining = weatherDesc.contains('rain') || weatherDesc.contains('drizzle') || weatherDesc.contains('storm');
+           bool tooWindy = windSpeedMps > 3.0; // > 3 m/s
+           
+           // Modified Logic: Removed humidity check (> 40)
+           bool canSpray = !isRaining && !tooWindy && (temp < 28); 
+           
+           String reason = "";
+           if (isRaining) reason = "Rain";
+           else if (tooWindy) reason = "Windy";
+           else if (temp >= 28) reason = "Too Hot";
+           
+           forecast.add({
+             "time": time,
+             "temp": temp,
+             "humidity": humidity,
+             "wind": windSpeedKph, // Display in kph usually better for users, but logic used m/s
+             "windMps": windSpeedMps,
+             "canSpray": canSpray,
+             "reason": reason,
+             "desc": weatherDesc,
+           });
+        }
+
+        if (mounted) {
+          setState(() {
+            _sprayForecast = forecast;
+            _isLoadingForecast = false;
+          });
+        }
+      } else {
+        debugPrint("Weather API Error: ${response.statusCode}");
+        _generateMockSprayData(); 
+      }
+    } catch (e) {
+      debugPrint("Weather API Exception: $e");
+      _generateMockSprayData();
+    }
+  }
+
+  void _generateMockSprayData() {
+    // This is now a fallback only if API fails completely
+    final random = Random();
+    DateTime now = DateTime.now();
+    // Round up to nearest 3 hours
+    int hour = now.hour;
+    int nextHour = (hour ~/ 3 + 1) * 3; 
+    // Handle day overflow if needed, but simple addition works
+    DateTime startTime = DateTime(now.year, now.month, now.day, nextHour, 0);
+    if (startTime.isBefore(now)) startTime = startTime.add(const Duration(hours: 3));
+    
+    List<Map<String, dynamic>> mockData = [];
+    for (int i = 0; i < 8; i++) { // 8 blocks of 3 hours = 24 hours
+      DateTime time = startTime.add(Duration(hours: i * 3));
+      double temp = 20 + random.nextDouble() * 10; 
+      double humidity = 40 + random.nextDouble() * 40; 
+      double windMps = random.nextDouble() * 5; // 0-5 m/s
+      double windKph = windMps * 3.6;
+      
+      bool isRaining = random.nextDouble() > 0.8; // 20% chance rain
+      bool tooWindy = windMps > 3.0;
+      
+      bool canSpray = !isRaining && !tooWindy && (temp < 28);
+      String reason = isRaining ? "Rain" : (tooWindy ? "Windy" : "");
+
+      mockData.add({
+        "time": time,
+        "temp": temp,
+        "humidity": humidity,
+        "wind": windKph,
+        "windMps": windMps,
+        "canSpray": canSpray,
+        "reason": reason,
+        "desc": isRaining ? "light rain" : "clear sky",
+      });
+    }
+    
+    if (mounted) {
+      setState(() {
+        _sprayForecast = mockData;
+        _isLoadingForecast = false;
+      });
+    }
   }
 
   @override
@@ -78,6 +207,40 @@ class _SoilScreenState extends State<SoilScreen> with SingleTickerProviderStateM
             fontSize: 18,
           ),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: GestureDetector(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Downloading Soil Health Report..."))
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(LucideIcons.download, color: Colors.white, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      "Report",
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
         centerTitle: true,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
@@ -168,31 +331,6 @@ class _SoilScreenState extends State<SoilScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildSprayTimingContent() {
-    // Mock Data for Spray Advice
-    final List<Map<String, dynamic>> adviceList = [
-      {
-        "title": "Fertilizer Application",
-        "status": "Optimal",
-        "message": "Soil moisture is adequate for nutrient absorption. Apply Nitrogen-based fertilizers in the early morning.",
-        "icon": LucideIcons.sprout,
-        "color": Colors.green,
-      },
-      {
-        "title": "Pesticide Spray",
-        "status": "Wait",
-        "message": "Wind speeds are currently too high (>15 km/h). Wait for calm conditions to prevent drift.",
-        "icon": LucideIcons.sprayCan,
-        "color": Colors.orange,
-      },
-      {
-        "title": "Irrigation Schedule",
-        "status": "Recommended",
-        "message": "Soil depth moisture is dropping. Consider a light irrigation cycle this evening.",
-        "icon": LucideIcons.droplets,
-        "color": Colors.blue,
-      }
-    ];
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -200,100 +338,154 @@ class _SoilScreenState extends State<SoilScreen> with SingleTickerProviderStateM
         children: [
           const SizedBox(height: 10),
           Text(
-            "Spray & Application Advice",
+            "Spray Recommendations",
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: const Color(0xFF1F2937),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          Text(
+            "Forecast (3-hour intervals)",
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: Colors.grey[500],
+            ),
+          ),
+          const SizedBox(height: 20),
           
-          ...adviceList.map((advice) {
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+          if (_isLoadingForecast) 
+             const Center(child: Padding(
+               padding: EdgeInsets.all(20.0),
+               child: CircularProgressIndicator(color: Color(0xFF166534)),
+             ))
+          else 
+            // List view of blocks one after another
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _sprayForecast.length,
+              itemBuilder: (context, index) {
+                final slot = _sprayForecast[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: _buildSprayBlock(slot),
+                );
+              },
+            ),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSprayBlock(Map<String, dynamic> slot) {
+    bool canSpray = slot['canSpray'];
+    String reason = slot['reason'] ?? "";
+    
+    Color statusColor = canSpray ? const Color(0xFF22C55E) : const Color(0xFFEF4444); // Green or Red
+    Color bgColor = canSpray ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2); // Light Green or Light Red
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Time
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  DateFormat('HH:mm').format(slot['time']),
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
                   ),
-                ],
-                border: Border(left: BorderSide(color: advice['color'], width: 4)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: advice['color'].withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(advice['icon'], color: advice['color'], size: 24),
+                ),
+                Text(
+                  DateFormat('MMM d').format(slot['time']),
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[600],
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              advice['title'],
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF1F2937),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: advice['color'].withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                advice['status'],
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: advice['color'],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          advice['message'],
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
           
-          // Placeholder for future logic integration
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Text(
-                "Real-time logic will be integrated here.",
-                style: GoogleFonts.inter(color: Colors.grey[400], fontSize: 12),
-              ),
+          // Metrics
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildMiniCondition(LucideIcons.thermometer, "${slot['temp'].toStringAsFixed(0)}°C"),
+                _buildMiniCondition(LucideIcons.droplets, "${slot['humidity'].toStringAsFixed(0)}%"),
+                _buildMiniCondition(LucideIcons.wind, "${slot['windMps'].toStringAsFixed(1)} m/s"),
+              ],
+            ),
+          ),
+          
+          const SizedBox(width: 12),
+          
+          // Signal Indicator
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      canSpray ? LucideIcons.checkCircle : LucideIcons.xCircle,
+                      color: statusColor,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      canSpray ? "SPRAY" : "AVOID",
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: statusColor,
+                      ),
+                    ),
+                  ],
+                ),
+                if (!canSpray && reason.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2.0),
+                    child: Text(
+                      reason,
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        color: statusColor,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -301,13 +493,24 @@ class _SoilScreenState extends State<SoilScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildSoilParametersContent() {
-    // Extract data for display, fallback to 0 if not available
-    double depthTemp = widget.sensorData?['depth_temp'] ?? 0.0;
-    double depthHum = widget.sensorData?['depth_humidity'] ?? 0.0;
-    double surfTemp = widget.sensorData?['surface_temp'] ?? 0.0;
-    double surfHum = widget.sensorData?['surface_humidity'] ?? 0.0;
+  Widget _buildMiniCondition(IconData icon, String value) {
+    return Column(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey[400]),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF1F2937),
+          ),
+        ),
+      ],
+    );
+  }
 
+  Widget _buildSoilParametersContent() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -315,7 +518,7 @@ class _SoilScreenState extends State<SoilScreen> with SingleTickerProviderStateM
         children: [
           const SizedBox(height: 10),
           Text(
-            "Current Conditions",
+            "Soil Composition & Nutrients",
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -323,128 +526,94 @@ class _SoilScreenState extends State<SoilScreen> with SingleTickerProviderStateM
             ),
           ),
           const SizedBox(height: 16),
-          
-          // Grid for 4 main parameters
+          // Additional Soil Parameters with Dummy Data
           GridView.count(
             crossAxisCount: 2,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
-            childAspectRatio: 1.1,
+            childAspectRatio: 1.5, // Slightly wider for text
             children: [
-              _buildSoilCard(
-                "Depth Temp", 
-                "${depthTemp}°C", 
-                Icons.device_thermostat, 
-                Colors.orange,
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => DepthTemperatureDetailsScreen(
-                    sensorData: widget.sensorData,
-                    deviceId: widget.deviceId,
-                    sessionCookie: widget.sessionCookie,
-                  )),
-                ),
-              ),
-              _buildSoilCard(
-                "Depth Humidity", 
-                "${depthHum}%", 
-                LucideIcons.droplet, 
-                Colors.teal,
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => DepthHumidityDetailsScreen(
-                    sensorData: widget.sensorData,
-                    deviceId: widget.deviceId,
-                    sessionCookie: widget.sessionCookie,
-                  )),
-                ),
-              ),
-              _buildSoilCard(
-                "Surface Temp", 
-                "${surfTemp}°C", 
-                Icons.thermostat, 
-                Colors.redAccent,
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => SurfaceTemperatureDetailsScreen(
-                    sensorData: widget.sensorData,
-                    deviceId: widget.deviceId,
-                    sessionCookie: widget.sessionCookie,
-                  )),
-                ),
-              ),
-              _buildSoilCard(
-                "Surface Humidity", 
-                "${surfHum}%", 
-                LucideIcons.waves, 
-                Colors.brown,
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => SurfaceHumidityDetailsScreen(
-                    sensorData: widget.sensorData,
-                    deviceId: widget.deviceId,
-                    sessionCookie: widget.sessionCookie,
-                  )),
-                ),
-              ),
+              _buildSimpleCard("pH Soil", "6.5", LucideIcons.testTube),
+              _buildSimpleCard("EC Soil", "0.8 dS/m", LucideIcons.zap),
+              _buildSimpleCard("Organic Carbon", "0.75 %", LucideIcons.leaf),
+              _buildSimpleCard("N Available", "180 Kg/ha", LucideIcons.sprout),
+              _buildSimpleCard("P Available", "22 Kg/ha", LucideIcons.aperture), // P icon placeholder
+              _buildSimpleCard("K Available", "210 Kg/ha", LucideIcons.atom), // K icon placeholder
+              _buildSimpleCard("Calcium", "4.2 cmol/Kg", LucideIcons.bone), // Calcium icon placeholder
+              _buildSimpleCard("Magnesium", "1.8 cmol/Kg", LucideIcons.mountainSnow), // Mg icon placeholder
+              _buildSimpleCard("S Available", "15 ppm", LucideIcons.cloudFog), // Sulfur icon placeholder
+              _buildSimpleCard("Iron", "4.5 mg/Kg", LucideIcons.anchor), // Iron icon placeholder
+              _buildSimpleCard("Manganese", "3.2 mg/Kg", LucideIcons.gem), // Manganese icon placeholder
+              _buildSimpleCard("Copper", "0.8 mg/Kg", LucideIcons.coins), // Copper icon placeholder
+              _buildSimpleCard("Zinc", "1.2 mg/Kg", LucideIcons.shield), // Zinc icon placeholder
+              _buildSimpleCard("Boron", "0.5 mg/Kg", LucideIcons.flower), // Boron icon placeholder
             ],
           ),
+          const SizedBox(height: 40),
         ],
       ),
     );
   }
 
-  Widget _buildSoilCard(String title, String value, IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+  Widget _buildSimpleCard(String title, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF166534).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 16, color: const Color(0xFF166534)),
               ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[600],
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    fontSize: 13, // Increased size
+                    color: Colors.grey[700], // Darker text
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
+            ],
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.only(left: 2.0),
+            child: Text(
               value,
               style: GoogleFonts.inter(
-                fontSize: 22,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: const Color(0xFF1F2937),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

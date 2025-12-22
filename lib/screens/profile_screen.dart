@@ -45,7 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _fetchUserData() async {
     try {
-      // 1. Fetch Session info (Using same logic as Dashboard)
+      // 1. Fetch Session info
       final sessionResponse = await http.get(
         Uri.parse('$_baseUrl/checkSession'),
         headers: {
@@ -63,16 +63,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (sessionResponse.statusCode == 200) {
         final sessionData = jsonDecode(sessionResponse.body);
         
-        // Use 'username' from session data, similar to Dashboard logic
         if (sessionData['user_id'] != null) userId = sessionData['user_id'].toString();
+        // Initial name from session if available
         if (sessionData['username'] != null) username = sessionData['username'].toString();
         
-        // Try to fetch specific fields if they exist in the session response
         if (sessionData['email'] != null) email = sessionData['email'].toString();
         if (sessionData['phone'] != null) mobile = sessionData['phone'].toString();
         else if (sessionData['mobile'] != null) mobile = sessionData['mobile'].toString();
         
-        // Construct address if components exist
         List<String> addrParts = [];
         if (sessionData['city'] != null) addrParts.add(sessionData['city']);
         if (sessionData['state'] != null) addrParts.add(sessionData['state']);
@@ -83,11 +81,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
            address = sessionData['address'].toString();
         }
 
-        // Fallback: If no user details, use "Admin" or similar
         if (userId == "Loading...") userId = "admin"; 
       }
 
-      // 2. Fetch Devices count (Using getDevices endpoint as in Dashboard)
+      // 2. Fetch Devices (Used for both Address and Farmer Name fallback)
       final devicesResponse = await http.get(
         Uri.parse('$_baseUrl/getDevices'),
         headers: {
@@ -99,29 +96,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
       int deviceCount = 0;
       if (devicesResponse.statusCode == 200) {
         final devicesData = jsonDecode(devicesResponse.body);
+        List<dynamic> deviceList = [];
+        
         if (devicesData is List) {
-          deviceCount = devicesData.length;
-          
-          // Optimization: If address is still default, try to get from first device
-          if (address == "India" && devicesData.isNotEmpty) {
-             var firstDevice = devicesData[0];
-             address = firstDevice['address']?.toString() ?? 
-                       firstDevice['location']?.toString() ?? 
-                       "India";
-          }
-          
+          deviceList = devicesData;
         } else if (devicesData is Map && devicesData.containsKey('data')) {
-           // Handle if wrapped in 'data'
            if (devicesData['data'] is List) {
-             var list = devicesData['data'] as List;
-             deviceCount = list.length;
-             
-             if (address == "India" && list.isNotEmpty) {
-                var firstDevice = list[0];
-                address = firstDevice['address']?.toString() ?? 
-                          firstDevice['location']?.toString() ?? 
-                          "India";
-             }
+             deviceList = devicesData['data'] as List;
+           }
+        }
+        
+        deviceCount = deviceList.length;
+
+        // --- NEW LOGIC: Use device data for Farmer Name and Address ---
+        if (deviceList.isNotEmpty) {
+           var firstDevice = deviceList[0];
+           
+           // Use 'farm_name' from the device API for the farmer's display name
+           String farmNameFromApi = firstDevice['farm_name']?.toString() ?? "";
+           if (farmNameFromApi.isNotEmpty) {
+             username = farmNameFromApi;
+           }
+
+           // Fallback address from device if session address is generic
+           if (address == "India" || address.isEmpty) {
+              address = firstDevice['address']?.toString() ?? 
+                        firstDevice['location']?.toString() ?? 
+                        "India";
            }
         }
       }
@@ -162,7 +163,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _handleLogout() async {
     try {
-      // 1. Get new CSRF for logout
       final csrfResponse = await http.get(
         Uri.parse('$_baseUrl/getCSRF'),
          headers: {'User-Agent': 'FlutterApp'},
@@ -173,7 +173,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final String csrfName = csrfData['csrf_name'];
         final String csrfValue = csrfData['csrf_token'];
         
-        // 2. Perform Logout via API
         await http.post(
           Uri.parse('$_baseUrl/logout'),
           headers: {
@@ -188,13 +187,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       debugPrint("Logout error: $e");
-      // Continue to navigate away even if API call fails
     }
 
-    // --- CLEAR COOKIE FROM STORAGE ---
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('session_cookie');
-    // ---------------------------------
 
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(

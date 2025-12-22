@@ -1,8 +1,8 @@
 name: grid_sphere_app
-description: "A new Flutter project."
+description: "AI-powered advisory system for apple orchard management by Grid Sphere."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: 'none'
 
 version: 1.0.0+1
 
@@ -12,68 +12,48 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # For making API calls to your FastAPI backend
+  # For making API calls to your FastAPI backend and Station APIs
   http: ^1.2.0
   # For nice typography
   google_fonts: ^6.3.2
-  # For date formatting
+  # For date formatting in sensor charts and spray timing
   intl: ^0.19.0
-  # For the bottom navigation bar and icons (optional, but good for style)
+  # For the consistent brand iconography
   lucide_icons: ^0.257.0
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
+  # Standard iOS style icons
   cupertino_icons: ^1.0.8
-  shared_preferences: ^2.5.3
+  # For persistent session management (Cookies/Device IDs)
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Lints for clean code
+  flutter_lints: ^3.0.0
+  # Generator for the custom app icon
+  flutter_launcher_icons: ^0.13.1
 
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+# Launcher Icon Configuration for Grid Sphere
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/logo.png"
+  adaptive_icon_background: "#166534" # Brand Green background for Android adaptive icons
+  adaptive_icon_foreground: "assets/mainlogo.png"
 
-# For information on the generic Dart part of this file, see the
-# following page: https://dart.dev/tools/pub/pubspec
-
-# The following section is specific to Flutter packages.
 flutter:
-
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
+  # Included Material Design icons
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
+  # Asset registration for the logo and potential images
   assets:
     - assets/
+    - assets/logo.png
 
-  # An image asset can refer to one or more resolution-specific "variants", see
-  # https://flutter.dev/to/resolution-aware-images
-
-  # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/to/asset-from-package
-
-  # To add custom fonts to your application, add a fonts section here,
-  # in this "flutter" section. Each entry in this list should have a
-  # "family" key with the font family name, and a "fonts" key with a
-  # list giving the asset and other descriptors for the font. For
-  # example:
+  # Custom font registration (if needed in future)
   # fonts:
-  #   - family: Schyler
+  #   - family: Inter
   #     fonts:
-  #       - asset: fonts/Schyler-Regular.ttf
-  #       - asset: fonts/Schyler-Italic.ttf
-  #         style: italic
-  #   - family: Trajan Pro
-  #     fonts:
-  #       - asset: fonts/TrajanPro.ttf
-  #       - asset: fonts/TrajanPro_Bold.ttf
+  #       - asset: assets/fonts/Inter-Regular.ttf
+  #       - asset: assets/fonts/Inter-Bold.ttf
   #         weight: 700
-  #
-  # For details regarding fonts from package dependencies,
-  # see https://flutter.dev/to/font-from-package

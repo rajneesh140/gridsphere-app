@@ -19,7 +19,7 @@ import '../detailed_screens/surface_temperature_details_screen.dart';
 import '../detailed_screens/surface_humidity_details_screen.dart';
 import 'alerts_screen.dart';
 import 'protection_screen.dart';
-import 'soil_screen.dart'; // Added Import
+import 'soil_screen.dart';
 
 class GoogleFonts {
   static TextStyle inter({
@@ -144,15 +144,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     debugPrint("⚠️ Loading Mock Data (Fallback)");
     final random = Random();
 
-    // Mock Devices List
+    // Mock Devices List with IDs
     final mockDevices = [
       {
-        'd_id': '2',
+        'd_id': '1',
         'farm_name': 'Field A (Apple)',
         'location': 'Himachal Pradesh'
       },
       {
-        'd_id': '3',
+        'd_id': '2',
         'farm_name': 'Field B (Cherry)',
         'location': 'Kashmir Valley'
       },
@@ -236,7 +236,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
 
       debugPrint("GetDevices Status: ${response.statusCode}");
-      debugPrint("GetDevices Body: ${response.body}");
 
       if (response.statusCode == 200) {
         final dynamic data = jsonDecode(response.body);
@@ -263,15 +262,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // Try to get location from device info if available, else fallback
             deviceLocation = device['address']?.toString() ?? "Field A";
             
-            // --- EXTRACT FARMER NAME HERE (Optimized) ---
+            // --- EXTRACT FARMER NAME ---
             farmerName = device["farm_name"]?.toString() ?? "Farmer";
           });
           debugPrint("✅ Device ID Found: $selectedDeviceId");
-        } else {
-          debugPrint("⚠️ No devices found in response data.");
         }
-      } else {
-        debugPrint("Error fetching devices: ${response.statusCode}");
       }
     } catch (e) {
       debugPrint("Exception fetching devices: $e");
@@ -306,20 +301,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           if (mounted) {
             setState(() {
-              // --- Time Logic for Offline Check ---
               String timeStr = reading['timestamp']?.toString() ?? "";
               lastOnline = timeStr;
 
-              // Calculate difference
               bool isOffline = false;
               if (timeStr.isNotEmpty) {
                 try {
-                  // Ensure ISO format for parsing (replace space with T if needed)
                   DateTime readingTime =
                       DateTime.parse(timeStr.replaceAll(' ', 'T'));
                   Duration diff = DateTime.now().difference(readingTime);
-
-                  // Check if older than 90 minutes
                   if (diff.inMinutes > 90) {
                     isOffline = true;
                   }
@@ -365,7 +355,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             });
           }
         } else {
-          // No readings might mean offline or new device
           if (mounted) {
             setState(() {
               deviceStatus = "Offline / No Data";
@@ -374,9 +363,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             });
           }
         }
-      } else {
-        debugPrint("Error fetching live data: ${response.statusCode}");
-        if (mounted) setState(() => isLoading = false);
       }
     } catch (e) {
       debugPrint("Exception fetching live data: $e");
@@ -403,7 +389,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         List<dynamic> readings = [];
         if (jsonResponse is List) {
           readings = jsonResponse;
-        } else if (jsonResponse['data'] is List) {
+        } else if (jsonResponse is Map && jsonResponse.containsKey('data')) {
           readings = jsonResponse['data'];
         }
 
@@ -479,13 +465,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 deviceId: selectedDeviceId,
               )),
             ).then((_) => setState(() => _selectedIndex = 0));
-          } else if (index == 3) { // Soil Tab (Added Logic)
+          } else if (index == 3) { // Soil Tab
+             double lat = 0.0;
+             double lon = 0.0;
+             try {
+                final device = _devices.firstWhere(
+                  (d) => d['d_id'].toString() == selectedDeviceId,
+                  orElse: () => <String, dynamic>{},
+                );
+                if (device.isNotEmpty) {
+                   lat = double.tryParse(device['latitude']?.toString() ?? "0") ?? 0.0;
+                   lon = double.tryParse(device['longitude']?.toString() ?? "0") ?? 0.0;
+                }
+             } catch (e) {
+               debugPrint("Error parsing lat/lon: $e");
+             }
+
              Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => SoilScreen(
                 sessionCookie: widget.sessionCookie,
                 deviceId: selectedDeviceId,
-                sensorData: sensorData, // Pass current data
+                sensorData: sensorData,
+                latitude: lat,
+                longitude: lon,
               )),
             ).then((_) => setState(() => _selectedIndex = 0));
           } else if (index == 4) { // Alerts Tab
@@ -538,7 +541,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const SizedBox(height: 24),
-                              // --- Offline Warning Widget ---
                               if (isDeviceOffline) _buildOfflineWarning(),
 
                               _buildFieldInfoBox(),
@@ -567,9 +569,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- Widgets (Header, Grid, Cards) ---
-
-  // --- Warning Widget ---
   Widget _buildOfflineWarning() {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -695,7 +694,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[500]),
         ),
         const SizedBox(height: 2),
-        // --- FittedBox to handle text overflow ---
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
@@ -784,15 +782,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         fontWeight: FontWeight.bold),
                   ),
 
-                  // --- Device Selector Toggle ---
+                  // --- UPDATED: Use actual device IDs in selection header ---
                   if (_devices.isNotEmpty)
                     PopupMenuButton<String>(
                       onSelected: (String id) {
                         final device = _devices
                             .firstWhere((d) => d['d_id'].toString() == id);
-                        String name = device['farm_name']?.toString() ??
-                            "Field ${device['d_id']}";
-                        _switchDevice(id, name);
+                        String loc = device['address']?.toString() ?? 
+                                     device['farm_name']?.toString() ?? 
+                                     "Field $id";
+                        _switchDevice(id, loc);
                       },
                       color: Colors.white,
                       shape: RoundedRectangleBorder(
@@ -802,8 +801,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           return PopupMenuItem<String>(
                             value: device['d_id'].toString(),
                             child: Text(
-                              device['farm_name']?.toString() ??
-                                  "Device ${device['d_id']}",
+                              "Device ID: ${device['d_id']}",
                               style: GoogleFonts.inter(color: Colors.black87),
                             ),
                           );
@@ -814,7 +812,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         children: [
                           Flexible(
                             child: Text(
-                              deviceLocation,
+                              "Device ID: $selectedDeviceId",
                               style: GoogleFonts.inter(
                                   color: Colors.white70, fontSize: 13),
                               overflow: TextOverflow.ellipsis,
@@ -868,10 +866,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 16,
       mainAxisSpacing: 16,
-      // --- Adjusted childAspectRatio to 1.0 (Compact Square) ---
       childAspectRatio: 1.0,
       children: [
-        // 1. Air Temp
         _ConditionCard(
           title: "Air Temp",
           value: "${sensorData?['air_temp']}°C",
@@ -893,7 +889,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             );
           },
         ),
-        // 2. Humidity
         _ConditionCard(
           title: "Humidity",
           value: "${sensorData?['humidity']}%",
@@ -915,9 +910,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             );
           },
         ),
-        // 3. Light Intensity
         _ConditionCard(
-            title: "Light\nIntensity",
+            title: "Light Intensity",
             value: "${sensorData?['light_intensity']} lx",
             icon: LucideIcons.sun,
             iconBg: const Color(0xFFFFFDE7),
@@ -936,7 +930,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         )),
               );
             }),
-        // 4. Wind
         _ConditionCard(
             title: "Wind",
             value: "${sensorData?['wind']} km/h",
@@ -957,7 +950,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         )),
               );
             }),
-        // 5. Leaf Wetness
         _ConditionCard(
             title: "Leaf Wetness",
             customContent: Column(
@@ -1004,10 +996,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         )),
               );
             }),
-        // 6. Rainfall
         _ConditionCard(
-            title: "Today's\nRainfall",
-            subtitle: "Today",
+            title: "Rainfall",
             value: "${sensorData?['rainfall']} mm",
             icon: LucideIcons.cloudRain,
             iconBg: const Color(0xFFE0F2FE),
@@ -1026,7 +1016,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         )),
               );
             }),
-        // 7. Pressure
         _ConditionCard(
             title: "Pressure",
             value: "${sensorData?['pressure']} hPa",
@@ -1047,7 +1036,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         )),
               );
             }),
-        // 8. Surface Temp
         _ConditionCard(
             title: "Surf Temp",
             value: "${sensorData?['surface_temp']}°C",
@@ -1068,7 +1056,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         )),
               );
             }),
-        // 9. Surface Hum
         _ConditionCard(
           title: "Surf Hum",
           value: "${sensorData?['surface_humidity']}%",
@@ -1090,9 +1077,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             );
           },
         ),
-        // 10. Depth Temp
         _ConditionCard(
-            title: "Depth Temp\n(10cm)",
+            title: "Depth Temp",
             value: "${sensorData?['depth_temp']}°C",
             icon: Icons.device_thermostat,
             iconBg: const Color(0xFFFBE9E7),
@@ -1111,12 +1097,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         )),
               );
             }),
-        // 11. Depth Hum
         _ConditionCard(
-            title: "Depth Hum\n(10cm)",
+            title: "Depth Hum",
             value: "${sensorData?['depth_humidity']}%",
             icon: LucideIcons.droplet,
-            // --- UPDATED to Teal ---
             iconBg: const Color(0xFFE0F2F1),
             iconColor: Colors.teal,
             child: _MiniLineChart(
@@ -1167,7 +1151,6 @@ class _ConditionCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        // --- Reduced padding for better fit on small cards ---
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -1187,7 +1170,6 @@ class _ConditionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  // --- Reduced Icon padding ---
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: iconBg,
@@ -1202,7 +1184,7 @@ class _ConditionCard extends StatelessWidget {
                     child: Text(
                       title,
                       style: GoogleFonts.inter(
-                        fontSize: 12, // Reduced font size
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: Colors.grey[700],
                       ),
@@ -1224,21 +1206,19 @@ class _ConditionCard extends StatelessWidget {
                       GoogleFonts.inter(fontSize: 11, color: Colors.grey[400]),
                 ),
               const SizedBox(height: 4),
-              // --- Wrapped Value in FittedBox ---
               FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
                 child: Text(
                   value ?? "--",
                   style: GoogleFonts.inter(
-                    fontSize: 22, // Slightly reduced font size
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: const Color(0xFF111827),
                   ),
                 ),
               ),
             ],
-            // Push content to the bottom using Spacer if no custom content
             if (child != null) ...[
               const Spacer(),
               const SizedBox(height: 4),
@@ -1253,13 +1233,13 @@ class _ConditionCard extends StatelessWidget {
 
 class _MiniLineChart extends StatelessWidget {
   final Color color;
-  final List<double> dataPoints; // Receive actual data
+  final List<double> dataPoints;
   const _MiniLineChart({required this.color, required this.dataPoints});
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 25, // --- Reduced graph height to 25 ---
+      height: 25,
       width: double.infinity,
       child: CustomPaint(
         painter: _ChartPainter(color, dataPoints),
@@ -1284,24 +1264,21 @@ class _ChartPainter extends CustomPainter {
     final path = Path();
 
     if (dataPoints.isEmpty) {
-      // Fallback smooth curve if no data yet
       path.moveTo(0, size.height);
       path.quadraticBezierTo(size.width * 0.25, size.height * 0.7,
           size.width * 0.5, size.height * 0.5);
       path.quadraticBezierTo(
           size.width * 0.75, size.height * 0.8, size.width, size.height * 0.2);
     } else {
-      // Normalize points to fit the box
       double minVal = dataPoints.reduce(min);
       double maxVal = dataPoints.reduce(max);
       double range = maxVal - minVal;
-      if (range == 0) range = 1; // Prevent division by zero
+      if (range == 0) range = 1;
 
       double stepX = size.width / (dataPoints.length - 1);
 
       for (int i = 0; i < dataPoints.length; i++) {
         double normalizedY = 1.0 - ((dataPoints[i] - minVal) / range);
-        // Add some padding so line doesn't hit exact edges (0.1 to 0.9)
         double y = size.height * (0.1 + (normalizedY * 0.8));
 
         if (i == 0) {
@@ -1313,7 +1290,6 @@ class _ChartPainter extends CustomPainter {
     }
 
     canvas.drawShadow(path, color.withOpacity(0.2), 2.0, true);
-
     canvas.drawPath(path, paint);
 
     final fillPath = Path.from(path)
@@ -1335,6 +1311,5 @@ class _ChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) =>
-      true; // Repaint when data changes
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
