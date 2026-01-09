@@ -4,7 +4,7 @@ description: "AI-powered advisory system for apple orchard management by Grid Sp
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
