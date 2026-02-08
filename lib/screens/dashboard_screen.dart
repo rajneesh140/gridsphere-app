@@ -12,6 +12,8 @@ import 'soil_screen.dart';
 import 'generic_detail_screen.dart'; // Import the new generic screen
 import 'cement_dust_spread_screen.dart';
 import 'cement_emission_screen.dart';
+import 'chemical_dust_spread_screen.dart';
+import 'chemical_process_stability_screen.dart';
 
 class GoogleFonts {
   static TextStyle inter({
@@ -415,12 +417,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
           setState(() => _selectedIndex = index);
 
           if (index == 1) {
-            // Protection / Dust Risk Tab
+            // Protection / Dust Risk / Pollution Tab
             if (_selectedRole == "Cement") {
               Navigator.push(
                 context,
                 MaterialPageRoute(
                     builder: (context) => CementDustSpreadScreen(
+                          sessionCookie: widget.sessionCookie,
+                          deviceId: selectedDeviceId,
+                        )),
+              ).then((_) => setState(() => _selectedIndex = 0));
+            } else if (_selectedRole == "Chemical") {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => ChemicalDustSpreadScreen(
                           sessionCookie: widget.sessionCookie,
                           deviceId: selectedDeviceId,
                         )),
@@ -436,12 +447,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ).then((_) => setState(() => _selectedIndex = 0));
             }
           } else if (index == 3) {
-            // Soil / Emission Tab
+            // Soil / Emission / Stability Tab
             if (_selectedRole == "Cement") {
               Navigator.push(
                 context,
                 MaterialPageRoute(
                     builder: (context) => CementEmissionScreen(
+                          sessionCookie: widget.sessionCookie,
+                          deviceId: selectedDeviceId,
+                          sensorData: sensorData,
+                        )),
+              ).then((_) => setState(() => _selectedIndex = 0));
+            } else if (_selectedRole == "Chemical") {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => ChemicalProcessStabilityScreen(
                           sessionCookie: widget.sessionCookie,
                           deviceId: selectedDeviceId,
                           sensorData: sensorData,
@@ -506,15 +527,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
           BottomNavigationBarItem(
             icon: Icon(_selectedRole == "Cement"
                 ? LucideIcons.wind
-                : LucideIcons.shieldCheck),
-            label: _selectedRole == "Cement" ? "Dust Risk" : "Protection",
+                : _selectedRole == "Chemical"
+                    ? LucideIcons.wind
+                    : LucideIcons.shieldCheck),
+            label: _selectedRole == "Cement"
+                ? "Dust Risk"
+                : _selectedRole == "Chemical"
+                    ? "Pollution"
+                    : "Protection",
           ),
           const BottomNavigationBarItem(icon: SizedBox(height: 24), label: ""),
           BottomNavigationBarItem(
             icon: Icon(_selectedRole == "Cement"
                 ? LucideIcons.activity
-                : LucideIcons.layers),
-            label: _selectedRole == "Cement" ? "Emission" : "Soil",
+                : _selectedRole == "Chemical"
+                    ? LucideIcons.gauge
+                    : LucideIcons.layers),
+            label: _selectedRole == "Cement"
+                ? "Emission"
+                : _selectedRole == "Chemical"
+                    ? "Stability"
+                    : "Soil",
           ),
           const BottomNavigationBarItem(
               icon: Icon(Icons.notifications_none), label: "Alerts"),
