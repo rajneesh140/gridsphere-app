@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart'; // Needed for direct prefs if used, but we use SessionManager
-import '../services/session_manager.dart';
-import '../services/background_service.dart';
-import '../services/notification_service.dart'; // Import Notification Service
-import 'dashboard_screen.dart';
-import 'protection_screen.dart';
-import 'soil_screen.dart';
 import 'chat_screen.dart';
+import 'session_manager.dart';
+import '../services/background_service.dart';
+import '../services/notification_service.dart';
+import '../widgets/custom_bottom_nav_bar.dart'; // Import CustomBottomNavBar
 
 class GoogleFonts {
   static TextStyle inter({
@@ -26,16 +23,14 @@ class GoogleFonts {
 }
 
 class AlertsScreen extends StatefulWidget {
-  final String sessionCookie;
+  // Removed sessionCookie from constructor
   final String deviceId;
-  // Kept for signature compatibility with navigation
   final Map<String, dynamic>? sensorData;
   final double latitude;
   final double longitude;
 
   const AlertsScreen({
     super.key,
-    required this.sessionCookie,
     this.deviceId = "",
     this.sensorData,
     this.latitude = 0.0,
@@ -47,22 +42,18 @@ class AlertsScreen extends StatefulWidget {
 }
 
 class _AlertsScreenState extends State<AlertsScreen> {
-  int _selectedIndex = 4;
+  // int _selectedIndex = 4; // Managed by CustomBottomNavBar
   bool _isLoading = true;
 
   // Controllers for text inputs
   final Map<String, TextEditingController> _minControllers = {};
   final Map<String, TextEditingController> _maxControllers = {};
 
-  // Configuration Data Source (Compatible with Background Service)
+  // Configuration Data Source
   Map<String, dynamic> _alertConfigs = {
     'temp': {'enabled': false, 'min': 10.0, 'max': 35.0},
     'humidity': {'enabled': false, 'min': 30.0, 'max': 80.0},
-    'surface_humidity': {
-      'enabled': false,
-      'min': 20.0,
-      'max': 60.0
-    }, // Soil Moisture
+    'surface_humidity': {'enabled': false, 'min': 20.0, 'max': 60.0},
     'rainfall': {'enabled': false, 'min': 0.0, 'max': 50.0},
     'light_intensity': {'enabled': false, 'min': 0.0, 'max': 10000.0},
     'wind': {'enabled': false, 'min': 0.0, 'max': 20.0},
@@ -73,7 +64,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
   final List<String> _sensorDisplayNames = [
     'Temperature',
     'Humidity',
-    'Soil Moisture', // Added to match agriculture context
+    'Soil Moisture',
     'Rainfall',
     'Light Intensity',
     'Wind Speed',
@@ -118,6 +109,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
   }
 
   Future<void> _loadSettings() async {
+    // Assuming SessionManager has getAlertSettings method as per your previous logic
+    // If not, you might need to add it to SessionManager or use SharedPreferences directly here.
+    // Using SessionManager as requested for consistency.
     String? jsonStr = await SessionManager.getAlertSettings();
     if (jsonStr != null) {
       try {
@@ -173,7 +167,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
       }
     });
 
-    // Save to SharedPrefs via SessionManager (Preserves Background Service compatibility)
+    // Save settings
     await SessionManager.saveAlertSettings(jsonEncode(_alertConfigs));
 
     // Ensure device ID is saved
@@ -212,9 +206,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA), // New light background color
+      backgroundColor: const Color(0xFFF5F7FA), // Light background
 
-      // --- APP BAR (New Style) ---
+      // --- APP BAR ---
       appBar: AppBar(
         title: const Text(
           "Alert Configuration",
@@ -261,7 +255,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
         ],
       ),
 
-      // --- FOOTER (Original Style) ---
+      // --- FOOTER ---
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -275,52 +269,22 @@ class _AlertsScreenState extends State<AlertsScreen> {
         shape: const CircleBorder(),
         child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF166534),
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        selectedLabelStyle:
-            GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12),
-        unselectedLabelStyle: GoogleFonts.inter(fontSize: 12),
-        onTap: (index) {
-          if (index == _selectedIndex) return;
-          if (index == 0) {
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                    builder: (c) =>
-                        DashboardScreen(sessionCookie: widget.sessionCookie)));
-          } else if (index == 1) {
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                    builder: (c) => ProtectionScreen(
-                        sessionCookie: widget.sessionCookie,
-                        deviceId: widget.deviceId)));
-          } else if (index == 3) {
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                    builder: (c) => SoilScreen(
-                        sessionCookie: widget.sessionCookie,
-                        deviceId: widget.deviceId)));
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(
-              icon: Icon(LucideIcons.shieldCheck), label: "Protection"),
-          BottomNavigationBarItem(icon: SizedBox(height: 24), label: ""),
-          BottomNavigationBarItem(
-              icon: Icon(LucideIcons.layers), label: "Soil"),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.notifications), label: "Alerts"),
-        ],
+
+      // --- Custom Bottom Navigation Bar ---
+      bottomNavigationBar: CustomBottomNavBar(
+        currentIndex: 4, // Alerts is index 4
+        deviceId: widget.deviceId,
+        sensorData: widget.sensorData,
+        // Using passed coordinates (or falling back to defaults if 0.0)
+        latitude: widget.latitude != 0.0
+            ? widget.latitude
+            : SessionManager().latitude,
+        longitude: widget.longitude != 0.0
+            ? widget.longitude
+            : SessionManager().longitude,
       ),
 
-      // --- BODY (New List Style) ---
+      // --- BODY ---
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF166534)))

@@ -4,9 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math';
 import 'package:intl/intl.dart' hide TextDirection;
-// Removed chat_screen.dart and alerts_screen.dart imports as we are not using the bottom nav here anymore or can pass navigation callbacks if needed.
-// Keeping them if you want to keep the bottom nav on this screen, but usually detail screens push on top.
-// For now, I will keep the structure simple as a detail view.
+import 'session_manager.dart';
 
 class GoogleFonts {
   static TextStyle inter({
@@ -40,7 +38,6 @@ class GenericDetailScreen extends StatefulWidget {
   final IconData icon;
   final Color themeColor;
   final String deviceId;
-  final String sessionCookie;
   final Map<String, dynamic>?
       currentData; // Optional: Pass current data to show immediately
 
@@ -52,7 +49,6 @@ class GenericDetailScreen extends StatefulWidget {
     required this.icon,
     required this.themeColor,
     required this.deviceId,
-    required this.sessionCookie,
     this.currentData,
   });
 
@@ -92,7 +88,7 @@ class _GenericDetailScreenState extends State<GenericDetailScreen> {
       final response = await http.get(
         url,
         headers: {
-          'Cookie': widget.sessionCookie,
+          'Cookie': SessionManager().sessionCookie, // Use SessionManager
           'User-Agent': 'FlutterApp',
           'Accept': 'application/json',
         },
@@ -114,20 +110,20 @@ class _GenericDetailScreenState extends State<GenericDetailScreen> {
           List<GraphPoint> points = [];
 
           for (var r in readings) {
-            // Dynamic parsing based on the key passed
             var rawVal = r[widget.sensorKey];
 
             // Handle different key names in history API if they differ from sensorKey
-            // (You might need a mapper here if API keys are vastly different)
             if (rawVal == null) {
-              // Fallback mappings if needed, e.g. 'air_temp' vs 'temp'
               if (widget.sensorKey == 'air_temp')
                 rawVal = r['temp'];
               else if (widget.sensorKey == 'soil_moisture')
                 rawVal = r['surface_humidity'];
               else if (widget.sensorKey == 'soil_temp')
                 rawVal = r['depth_temp'];
-              else if (widget.sensorKey == 'wind') rawVal = r['wind_speed'];
+              else if (widget.sensorKey == 'wind')
+                rawVal = r['wind_speed'];
+              else if (widget.sensorKey == 'wind_speed')
+                rawVal = r['wind_speed']; // Safety for wind_speed key
             }
 
             double val = double.tryParse(rawVal.toString()) ?? 0.0;
@@ -183,7 +179,6 @@ class _GenericDetailScreenState extends State<GenericDetailScreen> {
       } else {
         time = endDate.subtract(Duration(days: i));
       }
-      // Simple mock logic
       double base = 20.0 + random.nextDouble() * 10;
 
       mockPoints.add(GraphPoint(time: time, value: base));
@@ -199,7 +194,6 @@ class _GenericDetailScreenState extends State<GenericDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Current Value Logic
     double currentVal = 0.0;
     if (widget.currentData != null &&
         widget.currentData!.containsKey(widget.sensorKey)) {
@@ -223,11 +217,6 @@ class _GenericDetailScreenState extends State<GenericDetailScreen> {
           .reduce((curr, next) => curr.value < next.value ? curr : next);
       minVal = minPoint.value;
       minTime = DateFormat('dd/MM hh:mm a').format(minPoint.time);
-
-      if (_selectedRange != '24h') {
-        // Optionally update currentVal from history if viewing trend
-        // currentVal = _graphData.last.value;
-      }
     } else {
       maxVal = currentVal;
       minVal = currentVal;
@@ -257,9 +246,6 @@ class _GenericDetailScreenState extends State<GenericDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Removed AI Insight Card as requested
-
-            // Time Filter Tabs
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
@@ -275,8 +261,6 @@ class _GenericDetailScreenState extends State<GenericDetailScreen> {
               ),
             ),
             const SizedBox(height: 24),
-
-            // Main Stats
             Row(
               children: [
                 Expanded(
@@ -301,8 +285,6 @@ class _GenericDetailScreenState extends State<GenericDetailScreen> {
               ],
             ),
             const SizedBox(height: 24),
-
-            // Chart Section
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -365,7 +347,6 @@ class _GenericDetailScreenState extends State<GenericDetailScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 40),
           ],
         ),
@@ -375,7 +356,6 @@ class _GenericDetailScreenState extends State<GenericDetailScreen> {
 
   Widget _buildTab(String text, String rangeKey) {
     final isSelected = _selectedRange == rangeKey;
-    // Use theme color for selection or a standard green if you prefer uniformity
     final activeColor = widget.themeColor;
 
     return Expanded(
@@ -428,7 +408,7 @@ class _GenericDetailScreenState extends State<GenericDetailScreen> {
                 child: Text(
                   value,
                   style: GoogleFonts.inter(
-                    fontSize: 20, // Slightly smaller to fit units
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: const Color(0xFF1F2937),
                   ),
