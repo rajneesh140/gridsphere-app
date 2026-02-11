@@ -4,7 +4,7 @@ description: "AI-powered advisory system for apple orchard management by Grid Sp
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: "none"
 
-version: 1.0.0+3
+version: 1.0.0+4
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -24,6 +24,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   # For persistent session management (Cookies/Device IDs)
   shared_preferences: ^2.2.2
+  flutter_local_notifications: ^18.0.1
+  workmanager: ^0.9.0+3
 
 dev_dependencies:
   flutter_test:

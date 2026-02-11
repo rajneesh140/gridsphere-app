@@ -9,7 +9,7 @@ import 'chat_screen.dart';
 import 'alerts_screen.dart';
 import 'protection_screen.dart';
 import 'soil_screen.dart';
-import 'generic_detail_screen.dart'; // Import the new generic screen
+import 'generic_detail_screen.dart';
 
 class GoogleFonts {
   static TextStyle inter({
@@ -301,11 +301,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 "depth_humidity":
                     double.tryParse(reading['depth_humidity'].toString()) ??
                         0.0,
-                "surface_temp":
-                    double.tryParse(reading['surface_temp'].toString()) ?? 0.0,
-                "surface_humidity":
-                    double.tryParse(reading['surface_humidity'].toString()) ??
-                        0.0,
               };
               isLoading = false;
             });
@@ -459,10 +454,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   builder: (context) => AlertsScreen(
                         sessionCookie: widget.sessionCookie,
                         deviceId: selectedDeviceId,
-                        sensorData:
-                            sensorData, // Passing sensorData for context
-                        latitude:
-                            0.0, // Default or fetch real lat/lon if needed here
+                        sensorData: sensorData,
+                        latitude: 0.0,
                         longitude: 0.0,
                       )),
             ).then((_) => setState(() => _selectedIndex = 0));
@@ -536,8 +529,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
-  // ... (Keep existing _buildOfflineWarning, _buildFieldInfoBox, _buildInfoRow, _buildStatusRow, _buildCustomHeader methods as is) ...
 
   Widget _buildOfflineWarning() {
     return Container(
@@ -943,33 +934,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }),
         _ConditionCard(
             title: "Leaf Wetness",
-            customContent: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text("Leaf Wetness",
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF374151))),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text("${sensorData?['leaf_wetness']}",
-                          style: GoogleFonts.inter(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF111827))),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.check_circle,
-                        color: Color(0xFF2E7D32), size: 24),
-                  ],
-                )
-              ],
+            // --- FIX START: Wrapped Column in FittedBox to prevent 0.5px overflow ---
+            customContent: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min, // Ensure minimum height
+                children: [
+                  Text("Leaf Wetness",
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF374151))),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text("${sensorData?['leaf_wetness']}",
+                            style: GoogleFonts.inter(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF111827))),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.check_circle,
+                          color: Color(0xFF2E7D32), size: 24),
+                    ],
+                  )
+                ],
+              ),
             ),
+            // --- FIX END ---
             icon: LucideIcons.leaf,
             iconBg: const Color(0xFFDCFCE7),
             iconColor: const Color(0xFF15803D),

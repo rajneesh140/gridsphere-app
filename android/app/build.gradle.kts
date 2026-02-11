@@ -20,12 +20,16 @@ android {
     ndkVersion = "29.0.13846066"
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        // 1. Enable Core Library Desugaring (Kotlin DSL Syntax)
+        isCoreLibraryDesugaringEnabled = true
+
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        // FIX: Changed from VERSION_11 to VERSION_1_8 to match compileOptions
+        jvmTarget = JavaVersion.VERSION_1_8.toString()
     }
 
     defaultConfig {
@@ -59,4 +63,9 @@ android {
 
 flutter {
     source = "../.."
+}
+
+// 2. Add the dependency block for the desugar library
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
