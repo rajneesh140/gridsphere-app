@@ -14,6 +14,13 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+// Safely check if the file exists AND contains all required release keys
+val hasReleaseKeystore = keystorePropertiesFile.exists() &&
+    keystoreProperties["keyAlias"] != null &&
+    keystoreProperties["keyPassword"] != null &&
+    keystoreProperties["storeFile"] != null &&
+    keystoreProperties["storePassword"] != null
+
 android {
     namespace = "in.gridsphere.grid_sphere_app"
     compileSdk = flutter.compileSdkVersion
@@ -44,19 +51,30 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
+        // Only configure the release keystore if all properties were successfully loaded
+        if (hasReleaseKeystore) {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+            }
         }
     }
 
     buildTypes {
         release {
+            // FIX: Disable minification to prevent R8 from stripping necessary plugin code
+            isMinifyEnabled = false
+            isShrinkResources = false
+
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }
