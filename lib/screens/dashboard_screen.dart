@@ -6,10 +6,9 @@ import 'dart:async';
 import 'dart:math';
 import 'profile_screen.dart';
 import 'chat_screen.dart';
-import 'alerts_screen.dart';
-import 'protection_screen.dart';
-import 'soil_screen.dart';
-import 'generic_detail_screen.dart'; // Import the new generic screen
+import 'generic_detail_screen.dart';
+import 'session_manager.dart';
+import '../widgets/custom_bottom_nav_bar.dart'; // Import CustomBottomNavBar
 
 class GoogleFonts {
   static TextStyle inter({
@@ -33,9 +32,7 @@ class GoogleFonts {
 }
 
 class DashboardScreen extends StatefulWidget {
-  final String sessionCookie;
-
-  const DashboardScreen({super.key, required this.sessionCookie});
+  const DashboardScreen({super.key});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -53,13 +50,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, List<double>> historyData = {};
   bool isLoading = true;
   Timer? _timer;
-  int _selectedIndex = 0;
   final String _baseUrl = "https://gridsphere.in/station/api";
+
+  // Coordinates used locally, also synched to SessionManager
+  double _currentLatitude = 0.0;
+  double _currentLongitude = 0.0;
 
   @override
   void initState() {
     super.initState();
-    debugPrint("Dashboard initialized with Cookie: ${widget.sessionCookie}");
+    debugPrint(
+        "Dashboard initialized with Cookie: ${SessionManager().sessionCookie}");
+
+    // Load initial location from SessionManager if available
+    _currentLatitude = SessionManager().latitude;
+    _currentLongitude = SessionManager().longitude;
+
     _initializeData();
     _timer = Timer.periodic(const Duration(seconds: 60), (timer) {
       _fetchLiveData();
@@ -104,6 +110,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       isDeviceOffline = false;
       deviceStatus = "Checking...";
       lastOnline = "--";
+
+      // Update coordinates based on selected device from _devices list
+      final device = _devices.firstWhere(
+        (d) => d['d_id'].toString() == deviceId,
+        orElse: () => <String, dynamic>{},
+      );
+      if (device.isNotEmpty) {
+        _currentLatitude =
+            double.tryParse(device['latitude']?.toString() ?? "0.0") ?? 0.0;
+        _currentLongitude =
+            double.tryParse(device['longitude']?.toString() ?? "0.0") ?? 0.0;
+
+        // Update SessionManager so other screens know the new active location
+        SessionManager().setLocation(_currentLatitude, _currentLongitude);
+      }
     });
 
     _fetchLiveData();
@@ -118,12 +139,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       {
         'd_id': '1',
         'farm_name': 'Field A (Apple)',
-        'location': 'Himachal Pradesh'
+        'location': 'Himachal Pradesh',
+        'latitude': 31.1048,
+        'longitude': 77.1734
       },
       {
         'd_id': '2',
         'farm_name': 'Field B (Cherry)',
-        'location': 'Kashmir Valley'
+        'location': 'Kashmir Valley',
+        'latitude': 34.0837,
+        'longitude': 74.7973
       },
     ];
 
@@ -183,8 +208,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         isDeviceOffline = false;
 
         if (selectedDeviceId.isEmpty) {
-          selectedDeviceId = mockDevices[0]['d_id']!;
-          deviceLocation = mockDevices[0]['farm_name']!;
+          selectedDeviceId = mockDevices[0]['d_id'].toString();
+          deviceLocation = mockDevices[0]['farm_name'].toString();
+          _currentLatitude = (mockDevices[0]['latitude'] as num).toDouble();
+          _currentLongitude = (mockDevices[0]['longitude'] as num).toDouble();
+
+          // Set SessionManager location even for mock data
+          SessionManager().setLocation(_currentLatitude, _currentLongitude);
         }
       });
     }
@@ -195,7 +225,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final response = await http.get(
         Uri.parse('$_baseUrl/getDevices'),
         headers: {
-          'Cookie': widget.sessionCookie,
+          'Cookie': SessionManager().sessionCookie,
           'User-Agent': 'FlutterApp',
           'Accept': 'application/json',
         },
@@ -222,6 +252,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             selectedDeviceId = device['d_id'].toString();
             deviceLocation = device['address']?.toString() ?? "Field A";
             farmerName = device["farm_name"]?.toString() ?? "Farmer";
+
+            // Set initial coordinates
+            _currentLatitude =
+                double.tryParse(device['latitude']?.toString() ?? "0.0") ?? 0.0;
+            _currentLongitude =
+                double.tryParse(device['longitude']?.toString() ?? "0.0") ??
+                    0.0;
+
+            // Sync with SessionManager
+            SessionManager().setLocation(_currentLatitude, _currentLongitude);
           });
         }
       }
@@ -237,7 +277,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final response = await http.get(
         Uri.parse('$_baseUrl/live-data/$selectedDeviceId'),
         headers: {
-          'Cookie': widget.sessionCookie,
+          'Cookie': SessionManager().sessionCookie,
           'User-Agent': 'FlutterApp',
           'Accept': 'application/json',
         },
@@ -333,7 +373,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final response = await http.get(
         Uri.parse('$_baseUrl/devices/$selectedDeviceId/history?range=daily'),
         headers: {
-          'Cookie': widget.sessionCookie,
+          'Cookie': SessionManager().sessionCookie,
           'User-Agent': 'FlutterApp',
           'Accept': 'application/json',
         },
@@ -405,86 +445,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         shape: const CircleBorder(),
         child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          if (index == 2) return;
-          setState(() => _selectedIndex = index);
-
-          if (index == 1) {
-            // Protection Tab
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => ProtectionScreen(
-                        sessionCookie: widget.sessionCookie,
-                        deviceId: selectedDeviceId,
-                      )),
-            ).then((_) => setState(() => _selectedIndex = 0));
-          } else if (index == 3) {
-            // Soil Tab
-            double lat = 0.0;
-            double lon = 0.0;
-            try {
-              final device = _devices.firstWhere(
-                (d) => d['d_id'].toString() == selectedDeviceId,
-                orElse: () => <String, dynamic>{},
-              );
-              if (device.isNotEmpty) {
-                lat = double.tryParse(device['latitude']?.toString() ?? "0") ??
-                    0.0;
-                lon = double.tryParse(device['longitude']?.toString() ?? "0") ??
-                    0.0;
-              }
-            } catch (e) {
-              debugPrint("Error parsing lat/lon: $e");
-            }
-
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => SoilScreen(
-                        sessionCookie: widget.sessionCookie,
-                        deviceId: selectedDeviceId,
-                        sensorData: sensorData,
-                        latitude: lat,
-                        longitude: lon,
-                      )),
-            ).then((_) => setState(() => _selectedIndex = 0));
-          } else if (index == 4) {
-            // Alerts Tab
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => AlertsScreen(
-                        sessionCookie: widget.sessionCookie,
-                        deviceId: selectedDeviceId,
-                        sensorData:
-                            sensorData, // Passing sensorData for context
-                        latitude:
-                            0.0, // Default or fetch real lat/lon if needed here
-                        longitude: 0.0,
-                      )),
-            ).then((_) => setState(() => _selectedIndex = 0));
-          }
-        },
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF166534),
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        selectedLabelStyle:
-            GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12),
-        unselectedLabelStyle: GoogleFonts.inter(fontSize: 12),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(
-              icon: Icon(LucideIcons.shieldCheck), label: "Protection"),
-          BottomNavigationBarItem(icon: SizedBox(height: 24), label: ""),
-          BottomNavigationBarItem(
-              icon: Icon(LucideIcons.layers), label: "Soil"),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.notifications_none), label: "Alerts"),
-        ],
+      bottomNavigationBar: CustomBottomNavBar(
+        currentIndex: 0, // Dashboard is index 0
+        deviceId: selectedDeviceId,
+        sensorData: sensorData,
+        latitude: _currentLatitude,
+        longitude: _currentLongitude,
       ),
       body: SafeArea(
         bottom: false,
@@ -536,8 +502,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
-  // ... (Keep existing _buildOfflineWarning, _buildFieldInfoBox, _buildInfoRow, _buildStatusRow, _buildCustomHeader methods as is) ...
 
   Widget _buildOfflineWarning() {
     return Container(
@@ -806,8 +770,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) =>
-                      ProfileScreen(sessionCookie: widget.sessionCookie),
+                  builder: (context) => ProfileScreen(
+                      sessionCookie: SessionManager().sessionCookie),
                 ),
               );
             },
@@ -827,7 +791,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- UPDATED: Grid using GenericDetailScreen ---
   Widget _buildFieldConditionsGrid() {
     return GridView.count(
       crossAxisCount: 2,
@@ -852,12 +815,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               MaterialPageRoute(
                   builder: (context) => GenericDetailScreen(
                         title: "Air Temperature",
-                        sensorKey: "temp", // API Key
+                        sensorKey: "temp",
                         unit: "°C",
                         icon: LucideIcons.thermometer,
                         themeColor: const Color(0xFF2E7D32),
                         deviceId: selectedDeviceId,
-                        sessionCookie: widget.sessionCookie,
                         currentData: sensorData,
                       )),
             );
@@ -883,7 +845,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         icon: LucideIcons.droplets,
                         themeColor: const Color(0xFF0288D1),
                         deviceId: selectedDeviceId,
-                        sessionCookie: widget.sessionCookie,
                         currentData: sensorData,
                       )),
             );
@@ -909,14 +870,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: LucideIcons.sun,
                           themeColor: const Color(0xFFFBC02D),
                           deviceId: selectedDeviceId,
-                          sessionCookie: widget.sessionCookie,
                           currentData: sensorData,
                         )),
               );
             }),
         _ConditionCard(
             title: "Wind",
-            // Convert to m/s
             value:
                 "${((sensorData?['wind'] ?? 0.0) / 3.6).toStringAsFixed(1)} m/s",
             icon: LucideIcons.wind,
@@ -932,11 +891,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     builder: (context) => GenericDetailScreen(
                           title: "Wind Speed",
                           sensorKey: "wind_speed",
-                          unit: " m/s", // Updated unit
+                          unit: " m/s",
                           icon: LucideIcons.wind,
                           themeColor: const Color(0xFF0097A7),
                           deviceId: selectedDeviceId,
-                          sessionCookie: widget.sessionCookie,
                           currentData: sensorData,
                         )),
               );
@@ -983,11 +941,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     builder: (context) => GenericDetailScreen(
                           title: "Leaf Wetness",
                           sensorKey: "leafwetness",
-                          unit: "", // No unit for wet/dry usually
+                          unit: "",
                           icon: LucideIcons.leaf,
                           themeColor: const Color(0xFF15803D),
                           deviceId: selectedDeviceId,
-                          sessionCookie: widget.sessionCookie,
                           currentData: sensorData,
                         )),
               );
@@ -1012,7 +969,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: LucideIcons.cloudRain,
                           themeColor: const Color(0xFF0EA5E9),
                           deviceId: selectedDeviceId,
-                          sessionCookie: widget.sessionCookie,
                           currentData: sensorData,
                         )),
               );
@@ -1037,7 +993,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: LucideIcons.gauge,
                           themeColor: const Color(0xFF7B1FA2),
                           deviceId: selectedDeviceId,
-                          sessionCookie: widget.sessionCookie,
                           currentData: sensorData,
                         )),
               );
@@ -1062,7 +1017,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: Icons.thermostat,
                           themeColor: const Color(0xFFD32F2F),
                           deviceId: selectedDeviceId,
-                          sessionCookie: widget.sessionCookie,
                           currentData: sensorData,
                         )),
               );
@@ -1087,7 +1041,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         icon: LucideIcons.waves,
                         themeColor: const Color(0xFF5D4037),
                         deviceId: selectedDeviceId,
-                        sessionCookie: widget.sessionCookie,
                         currentData: sensorData,
                       )),
             );
@@ -1113,7 +1066,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: Icons.device_thermostat,
                           themeColor: const Color(0xFFD84315),
                           deviceId: selectedDeviceId,
-                          sessionCookie: widget.sessionCookie,
                           currentData: sensorData,
                         )),
               );
@@ -1138,7 +1090,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: LucideIcons.droplet,
                           themeColor: Colors.teal,
                           deviceId: selectedDeviceId,
-                          sessionCookie: widget.sessionCookie,
                           currentData: sensorData,
                         )),
               );
