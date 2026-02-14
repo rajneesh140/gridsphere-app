@@ -70,13 +70,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (sessionResponse.statusCode == 200) {
         final sessionData = jsonDecode(sessionResponse.body);
-
         if (sessionData['user_id'] != null)
           userId = sessionData['user_id'].toString();
         // Initial name from session if available
         if (sessionData['username'] != null)
           username = sessionData['username'].toString();
-
         if (sessionData['email'] != null)
           email = sessionData['email'].toString();
         if (sessionData['phone'] != null)
@@ -120,11 +118,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
 
         deviceCount = deviceList.length;
-
         // --- NEW LOGIC: Use device data for Farmer Name and Address ---
         if (deviceList.isNotEmpty) {
           var firstDevice = deviceList[0];
-
           // Use 'farm_name' from the device API for the farmer's display name
           String farmNameFromApi = firstDevice['farm_name']?.toString() ?? "";
           if (farmNameFromApi.isNotEmpty) {
@@ -203,7 +199,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const LoginScreen()),
-        (route) => false,
+            (route) => false,
       );
     }
   }
@@ -231,202 +227,312 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
           : Column(
+        children: [
+          const SizedBox(height: 20),
+          // Profile Image Section
+          Center(
+            child: Column(
               children: [
-                const SizedBox(height: 20),
-                // Profile Image Section
-                Center(
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFD6C0B3), // Beige/Skin tone
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 4),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.person,
-                            size: 60, color: Color(0xFF5D4037)),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        userData["name"] ?? "User",
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Text(
-                        "Grid Sphere Pvt. Ltd.",
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: Colors.white70,
-                        ),
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD6C0B3), // Beige/Skin tone
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
                       ),
                     ],
                   ),
+                  child: const Icon(Icons.person,
+                      size: 60, color: Color(0xFF5D4037)),
                 ),
-                const SizedBox(height: 40),
-
-                // Details Card
-                Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF1F5F9), // Light grey background
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(30)),
-                    ),
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        children: [
-                          _buildInfoTile("Farmer Name",
-                              userData["name"] ?? "User", LucideIcons.user),
-                          const SizedBox(height: 16),
-                          _buildInfoTile("Email", userData["email"] ?? "--",
-                              LucideIcons.mail),
-                          const SizedBox(height: 16),
-                          _buildInfoTile("Mobile Number",
-                              userData["mobile"] ?? "--", LucideIcons.phone),
-                          const SizedBox(height: 16),
-                          _buildInfoTile("Address", userData["address"] ?? "--",
-                              LucideIcons.mapPin),
-                          const SizedBox(height: 16),
-                          _buildInfoTile("User ID", userData["id"] ?? "--",
-                              LucideIcons.badgeInfo),
-                          const SizedBox(height: 16),
-                          _buildInfoTile(
-                              "Active Devices",
-                              "${userData["devices"] ?? 0} Sensors",
-                              LucideIcons.radio),
-
-                          const SizedBox(height: 16),
-                          _buildRoleDropdown(),
-
-                          const SizedBox(height: 40),
-
-                          // Logout Button
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _handleLogout,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red.shade50,
-                                foregroundColor: Colors.red.shade700,
-                                elevation: 0,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  side: BorderSide(color: Colors.red.shade100),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(LucideIcons.logOut, size: 20),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    "Log Out",
-                                    style: GoogleFonts.inter(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                const SizedBox(height: 16),
+                Text(
+                  userData["name"] ?? "User",
+                  style: GoogleFonts.inter(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  "Grid Sphere Pvt. Ltd.",
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: Colors.white70,
                   ),
                 ),
               ],
             ),
-    );
-  }
+          ),
+          const SizedBox(height: 40),
 
-  Widget _buildRoleDropdown() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+          // Details Card
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF1F5F9), // Light grey background
+                borderRadius:
+                BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    _buildInfoTile("Farmer Name",
+                        userData["name"] ?? "User", LucideIcons.user),
+                    const SizedBox(height: 16),
+                    _buildInfoTile("Email", userData["email"] ?? "--",
+                        LucideIcons.mail),
+                    const SizedBox(height: 16),
+                    _buildInfoTile("Mobile Number",
+                        userData["mobile"] ?? "--", LucideIcons.phone),
+                    const SizedBox(height: 16),
+                    _buildInfoTile("Address", userData["address"] ?? "--",
+                        LucideIcons.mapPin),
+                    const SizedBox(height: 16),
+                    _buildInfoTile("User ID", userData["id"] ?? "--",
+                        LucideIcons.badgeInfo),
+                    const SizedBox(height: 16),
+                    _buildInfoTile(
+                        "Active Devices",
+                        "${userData["devices"] ?? 0} Sensors",
+                        LucideIcons.radio),
+
+                    const SizedBox(height: 16),
+                    _buildRoleDropdown(), // Updated Dropdown Widget
+
+                    const SizedBox(height: 40),
+
+                    // Logout Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _handleLogout,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade50,
+                          foregroundColor: Colors.red.shade700,
+                          elevation: 0,
+                          padding:
+                          const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(color: Colors.red.shade100),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(LucideIcons.logOut, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              "Log Out",
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF166534).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+    );
+  }
+
+  // --- New Logic: Helper to map Role to Icon ---
+  IconData _getRoleIcon(String role) {
+    switch (role) {
+      case 'agriculture':
+        return LucideIcons.sprout;
+      case 'cement':
+        return LucideIcons.factory;
+      case 'chemical':
+        return LucideIcons.flaskConical;
+      default:
+        return LucideIcons.briefcase;
+    }
+  }
+
+  // --- New Logic: Show Beautiful Bottom Sheet ---
+  void _showIndustrySelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
             ),
-            child: const Icon(LucideIcons.briefcase,
-                color: Color(0xFF166534), size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Industry Type",
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: Colors.grey[500],
-                    fontWeight: FontWeight.w500,
+            const SizedBox(height: 20),
+            Text(
+              "Select Industry",
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1F2937),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ..._roleLabels.entries.map((entry) {
+              final isSelected = _selectedRole == entry.key;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: InkWell(
+                  onTap: () async {
+                    setState(() {
+                      _selectedRole = entry.key;
+                    });
+                    await SessionManager().saveRole(entry.key);
+                    Navigator.pop(context);
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFF166534).withOpacity(0.05)
+                          : Colors.white,
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xFF166534)
+                            : Colors.grey.shade200,
+                        width: isSelected ? 1.5 : 1,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFF166534)
+                                : Colors.grey.shade100,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _getRoleIcon(entry.key),
+                            color: isSelected
+                                ? Colors.white
+                                : Colors.grey.shade600,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            entry.value,
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? const Color(0xFF166534)
+                                  : const Color(0xFF374151),
+                            ),
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(LucideIcons.checkCircle,
+                              color: Color(0xFF166534), size: 20),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedRole,
-                    isExpanded: true,
-                    isDense: true,
+              );
+            }).toList(),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- New Logic: Improved Trigger Widget ---
+  Widget _buildRoleDropdown() {
+    return GestureDetector(
+      onTap: _showIndustrySelector,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF166534).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(_getRoleIcon(_selectedRole),
+                  color: const Color(0xFF166534), size: 20),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Industry Type",
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _roleLabels[_selectedRole] ?? "Select Industry",
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFF1F2937),
                     ),
-                    icon: const Icon(LucideIcons.chevronDown,
-                        size: 18, color: Color(0xFF166534)),
-                    items: _roleLabels.entries.map((entry) {
-                      return DropdownMenuItem<String>(
-                        value: entry.key,
-                        child: Text(entry.value),
-                      );
-                    }).toList(),
-                    onChanged: (value) async {
-                      if (value != null && value != _selectedRole) {
-                        setState(() {
-                          _selectedRole = value;
-                        });
-                        await SessionManager().saveRole(value);
-                      }
-                    },
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+            const Icon(LucideIcons.chevronDown, size: 20, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }
