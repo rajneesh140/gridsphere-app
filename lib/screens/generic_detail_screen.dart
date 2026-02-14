@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:intl/intl.dart' hide TextDirection;
 import '../session_manager/session_manager.dart';
 import '../widgets/home_back_button.dart';
+import '../widgets/home_pop_scope.dart'; // Import HomePopScope
 
 class GoogleFonts {
   static TextStyle inter({
@@ -223,130 +224,134 @@ class _GenericDetailScreenState extends State<GenericDetailScreen> {
       minVal = currentVal;
     }
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
+    // --- UPDATED: Use HomePopScope Wrapper ---
+    return HomePopScope(
+      child: Scaffold(
         backgroundColor: Colors.white,
-        elevation: 0,
-        leading: const HomeBackButton(),
-        title: Text(
-          widget.title,
-          style: GoogleFonts.inter(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: const HomeBackButton(),
+          title: Text(
+            widget.title,
+            style: GoogleFonts.inter(
+              color: Colors.black87,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
           ),
+          centerTitle: true,
         ),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    _buildTab("Day", "24h"),
+                    _buildTab("Week", "7d"),
+                    _buildTab("Month", "30d"),
+                  ],
+                ),
               ),
-              child: Row(
+              const SizedBox(height: 24),
+              Row(
                 children: [
-                  _buildTab("Day", "24h"),
-                  _buildTab("Week", "7d"),
-                  _buildTab("Month", "30d"),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatBox(
-                    "Max",
-                    "${maxVal.toStringAsFixed(1)}${widget.unit}",
-                    Icons.arrow_upward,
-                    Colors.red,
-                    maxTime,
+                  Expanded(
+                    child: _buildStatBox(
+                      "Max",
+                      "${maxVal.toStringAsFixed(1)}${widget.unit}",
+                      Icons.arrow_upward,
+                      Colors.red,
+                      maxTime,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildStatBox(
-                    "Min",
-                    "${minVal.toStringAsFixed(1)}${widget.unit}",
-                    Icons.arrow_downward,
-                    Colors.blue,
-                    minTime,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.grey.shade200),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildStatBox(
+                      "Min",
+                      "${minVal.toStringAsFixed(1)}${widget.unit}",
+                      Icons.arrow_downward,
+                      Colors.blue,
+                      minTime,
+                    ),
                   ),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: widget.themeColor.withOpacity(0.1),
-                          shape: BoxShape.circle,
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.grey.shade200),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: widget.themeColor.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(widget.icon,
+                              color: widget.themeColor, size: 20),
                         ),
-                        child: Icon(widget.icon,
-                            color: widget.themeColor, size: 20),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        "${widget.title} Trend",
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                        const SizedBox(width: 10),
+                        Text(
+                          "${widget.title} Trend",
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    height: 250,
-                    width: double.infinity,
-                    child: _isLoading
-                        ? Center(
-                            child: CircularProgressIndicator(
-                                color: widget.themeColor))
-                        : _errorMessage.isNotEmpty
-                            ? Center(
-                                child: Text(_errorMessage,
-                                    style: const TextStyle(color: Colors.red)))
-                            : CustomPaint(
-                                painter: _DetailedChartPainter(
-                                  dataPoints: _graphData,
-                                  color: widget.themeColor,
-                                  range: _selectedRange,
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      height: 250,
+                      width: double.infinity,
+                      child: _isLoading
+                          ? Center(
+                              child: CircularProgressIndicator(
+                                  color: widget.themeColor))
+                          : _errorMessage.isNotEmpty
+                              ? Center(
+                                  child: Text(_errorMessage,
+                                      style:
+                                          const TextStyle(color: Colors.red)))
+                              : CustomPaint(
+                                  painter: _DetailedChartPainter(
+                                    dataPoints: _graphData,
+                                    color: widget.themeColor,
+                                    range: _selectedRange,
+                                  ),
                                 ),
-                              ),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 40),
-          ],
+              const SizedBox(height: 40),
+            ],
+          ),
         ),
       ),
     );

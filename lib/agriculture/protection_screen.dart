@@ -7,6 +7,7 @@ import '../screens/chat_screen.dart';
 import '../session_manager/session_manager.dart'; // Import SessionManager
 import '../widgets/custom_bottom_nav_bar.dart'; // Import CustomBottomNavBar
 import '../widgets/home_back_button.dart';
+import '../widgets/home_pop_scope.dart'; // Import HomePopScope
 
 class GoogleFonts {
   static TextStyle inter({
@@ -407,85 +408,89 @@ class _ProtectionScreenState extends State<ProtectionScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF166534),
-      appBar: AppBar(
+    // --- UPDATED: Use HomePopScope Wrapper ---
+    return HomePopScope(
+      child: Scaffold(
         backgroundColor: const Color(0xFF166534),
-        elevation: 0,
-        leading: const HomeBackButton(),
-        title: Text(
-          "Field Protection",
-          style: GoogleFonts.inter(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF166534),
+          elevation: 0,
+          leading:
+              const HomeBackButton(), // Also use HomeBackButton for UI back arrow
+          title: Text(
+            "Field Protection",
+            style: GoogleFonts.inter(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
           ),
-        ),
-        centerTitle: true,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Container(
-            color: const Color(0xFF166534),
-            child: TabBar(
-              controller: _tabController,
-              indicatorColor: Colors.white,
-              indicatorWeight: 3,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white60,
-              labelStyle:
-                  GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16),
-              dividerColor: Colors.transparent,
-              tabs: const [
-                Tab(text: "Fungal Risk"),
-                Tab(text: "Pest Activity"),
-              ],
+          centerTitle: true,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(48),
+            child: Container(
+              color: const Color(0xFF166534),
+              child: TabBar(
+                controller: _tabController,
+                indicatorColor: Colors.white,
+                indicatorWeight: 3,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white60,
+                labelStyle: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold, fontSize: 16),
+                dividerColor: Colors.transparent,
+                tabs: const [
+                  Tab(text: "Fungal Risk"),
+                  Tab(text: "Pest Activity"),
+                ],
+              ),
             ),
           ),
         ),
-      ),
 
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ChatScreen()),
-          );
-        },
-        backgroundColor: const Color(0xFF166534),
-        elevation: 4.0,
-        shape: const CircleBorder(),
-        child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
-      ),
-
-      // --- Custom Bottom Navigation Bar ---
-      bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: 1, // Protection is index 1
-        deviceId: widget.deviceId,
-        // Pass session manager coordinates for consistent navigation context
-        sensorData: null,
-        latitude: SessionManager().latitude,
-        longitude: SessionManager().longitude,
-      ),
-
-      body: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          color: Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ChatScreen()),
+            );
+          },
+          backgroundColor: const Color(0xFF166534),
+          elevation: 4.0,
+          shape: const CircleBorder(),
+          child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
         ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-          child: _isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF166534)))
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildFungusContent(),
-                    _buildPestContent(),
-                  ],
-                ),
+
+        // --- Custom Bottom Navigation Bar ---
+        bottomNavigationBar: CustomBottomNavBar(
+          currentIndex: 1, // Protection is index 1
+          deviceId: widget.deviceId,
+          // Pass session manager coordinates for consistent navigation context
+          sensorData: null,
+          latitude: SessionManager().latitude,
+          longitude: SessionManager().longitude,
+        ),
+
+        body: Container(
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF166534)))
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildFungusContent(),
+                      _buildPestContent(),
+                    ],
+                  ),
+          ),
         ),
       ),
     );

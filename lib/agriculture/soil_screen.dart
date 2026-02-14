@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../session_manager/session_manager.dart'; // Import SessionManager
 import '../widgets/custom_bottom_nav_bar.dart'; // Import CustomBottomNavBar
 import '../widgets/home_back_button.dart'; // Import HomeBackButton
+import '../widgets/home_pop_scope.dart'; // Import HomePopScope
 
 class GoogleFonts {
   static TextStyle inter({
@@ -198,116 +199,119 @@ class _SoilScreenState extends State<SoilScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF166534),
-      appBar: AppBar(
+    // --- UPDATED: Use HomePopScope Wrapper ---
+    return HomePopScope(
+      child: Scaffold(
         backgroundColor: const Color(0xFF166534),
-        elevation: 0,
-        // Using the new HomeBackButton widget
-        leading: const HomeBackButton(),
-        title: Text(
-          "Soil Health",
-          style: GoogleFonts.inter(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF166534),
+          elevation: 0,
+          leading:
+              const HomeBackButton(), // Also use HomeBackButton for UI back arrow
+          title: Text(
+            "Soil Health",
+            style: GoogleFonts.inter(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
           ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: GestureDetector(
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text("Downloading Soil Health Report...")));
-              },
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(LucideIcons.download,
-                        color: Colors.white, size: 16),
-                    const SizedBox(width: 6),
-                    Text(
-                      "Report",
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: GestureDetector(
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text("Downloading Soil Health Report...")));
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(LucideIcons.download,
+                          color: Colors.white, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Report",
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
-        centerTitle: true,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Container(
-            color: const Color(0xFF166534),
-            child: TabBar(
-              controller: _tabController,
-              indicatorColor: Colors.white,
-              indicatorWeight: 3,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white60,
-              labelStyle:
-                  GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16),
-              dividerColor: Colors.transparent,
-              tabs: const [
-                Tab(text: "Spray Timing"),
-                Tab(text: "Soil Parameters"),
-              ],
+          ],
+          centerTitle: true,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(48),
+            child: Container(
+              color: const Color(0xFF166534),
+              child: TabBar(
+                controller: _tabController,
+                indicatorColor: Colors.white,
+                indicatorWeight: 3,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white60,
+                labelStyle: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold, fontSize: 16),
+                dividerColor: Colors.transparent,
+                tabs: const [
+                  Tab(text: "Spray Timing"),
+                  Tab(text: "Soil Parameters"),
+                ],
+              ),
             ),
           ),
         ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ChatScreen()),
-          );
-        },
-        backgroundColor: const Color(0xFF166534),
-        elevation: 4.0,
-        shape: const CircleBorder(),
-        child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
-      ),
-
-      // --- Custom Bottom Navigation Bar ---
-      bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: 3, // Soil is index 3
-        deviceId: widget.deviceId,
-        sensorData: widget.sensorData,
-        // Pass the resolved coordinates so nav bar links work correctly
-        latitude: _currentLatitude,
-        longitude: _currentLongitude,
-      ),
-
-      body: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          color: Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ChatScreen()),
+            );
+          },
+          backgroundColor: const Color(0xFF166534),
+          elevation: 4.0,
+          shape: const CircleBorder(),
+          child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
         ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildSprayTimingContent(),
-              _buildSoilParametersContent(),
-            ],
+
+        // --- Custom Bottom Navigation Bar ---
+        bottomNavigationBar: CustomBottomNavBar(
+          currentIndex: 3, // Soil is index 3
+          deviceId: widget.deviceId,
+          sensorData: widget.sensorData,
+          // Pass the resolved coordinates so nav bar links work correctly
+          latitude: _currentLatitude,
+          longitude: _currentLongitude,
+        ),
+
+        body: Container(
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildSprayTimingContent(),
+                _buildSoilParametersContent(),
+              ],
+            ),
           ),
         ),
       ),

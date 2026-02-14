@@ -5,8 +5,8 @@ import 'chat_screen.dart';
 import '../session_manager/session_manager.dart';
 import '../services/background_service.dart';
 import '../services/notification_service.dart';
-import '../widgets/custom_bottom_nav_bar.dart';
-import '../widgets/home_back_button.dart';
+import '../widgets/custom_bottom_nav_bar.dart'; // Import CustomBottomNavBar
+import '../widgets/home_pop_scope.dart'; // Import HomePopScope
 
 class GoogleFonts {
   static TextStyle inter({
@@ -206,104 +206,112 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA), // Light background
+    // --- UPDATED: Use HomePopScope Wrapper ---
+    return HomePopScope(
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA), // Light background
 
-      // --- APP BAR ---
-      appBar: AppBar(
-        title: const Text(
-          "Alert Configuration",
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        leading: const HomeBackButton(),
-        actions: [
-          // Debug Button
-          IconButton(
-            icon: const Icon(Icons.bug_report, color: Colors.orange),
-            tooltip: "Test Notification",
-            onPressed: () async {
-              await NotificationService.showNotification(
-                id: 101,
-                title: "Debug Alert 🛠️",
-                body: "Notification system is fully operational!",
-              );
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Test notification triggered")),
-                );
-              }
-            },
-          ),
-          // Save Button
-          IconButton(
-            icon: Icon(Icons.check_circle,
-                color: _isLoading ? Colors.grey : const Color(0xFF00B0FF),
-                size: 28),
-            onPressed: _isLoading ? null : _saveSettings,
-            tooltip: "Save Settings",
-          )
-        ],
-      ),
-
-      // --- FOOTER ---
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ChatScreen()),
-          );
-        },
-        backgroundColor: const Color(0xFF166534),
-        elevation: 4.0,
-        shape: const CircleBorder(),
-        child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
-      ),
-
-      // --- Custom Bottom Navigation Bar ---
-      bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: 4, // Alerts is index 4
-        deviceId: widget.deviceId,
-        sensorData: widget.sensorData,
-        // Using passed coordinates (or falling back to defaults if 0.0)
-        latitude: widget.latitude != 0.0
-            ? widget.latitude
-            : SessionManager().latitude,
-        longitude: widget.longitude != 0.0
-            ? widget.longitude
-            : SessionManager().longitude,
-      ),
-
-      // --- BODY ---
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF166534)))
-          : ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                const Text(
-                  "Set Thresholds",
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ..._sensorDisplayNames.map((sensor) {
-                  return _buildSensorCard(sensor);
-                }).toList(),
-                const SizedBox(height: 80), // Space for FAB
-              ],
+        // --- APP BAR ---
+        appBar: AppBar(
+          title: const Text(
+            "Alert Configuration",
+            style: TextStyle(
+              color: Colors.black87,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
             ),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios,
+                color: Colors.black87, size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
+          actions: [
+            // Debug Button
+            IconButton(
+              icon: const Icon(Icons.bug_report, color: Colors.orange),
+              tooltip: "Test Notification",
+              onPressed: () async {
+                await NotificationService.showNotification(
+                  id: 101,
+                  title: "Debug Alert 🛠️",
+                  body: "Notification system is fully operational!",
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text("Test notification triggered")),
+                  );
+                }
+              },
+            ),
+            // Save Button
+            IconButton(
+              icon: Icon(Icons.check_circle,
+                  color: _isLoading ? Colors.grey : const Color(0xFF00B0FF),
+                  size: 28),
+              onPressed: _isLoading ? null : _saveSettings,
+              tooltip: "Save Settings",
+            )
+          ],
+        ),
+
+        // --- FOOTER ---
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ChatScreen()),
+            );
+          },
+          backgroundColor: const Color(0xFF166534),
+          elevation: 4.0,
+          shape: const CircleBorder(),
+          child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
+        ),
+
+        // --- Custom Bottom Navigation Bar ---
+        bottomNavigationBar: CustomBottomNavBar(
+          currentIndex: 4, // Alerts is index 4
+          deviceId: widget.deviceId,
+          sensorData: widget.sensorData,
+          // Using passed coordinates (or falling back to defaults if 0.0)
+          latitude: widget.latitude != 0.0
+              ? widget.latitude
+              : SessionManager().latitude,
+          longitude: widget.longitude != 0.0
+              ? widget.longitude
+              : SessionManager().longitude,
+        ),
+
+        // --- BODY ---
+        body: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: Color(0xFF166534)))
+            : ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  const Text(
+                    "Set Thresholds",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ..._sensorDisplayNames.map((sensor) {
+                    return _buildSensorCard(sensor);
+                  }).toList(),
+                  const SizedBox(height: 80), // Space for FAB
+                ],
+              ),
+      ),
     );
   }
 

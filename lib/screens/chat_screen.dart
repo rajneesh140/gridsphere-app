@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/home_back_button.dart';
+import '../widgets/home_pop_scope.dart'; // Import HomePopScope
 
 // Simple GoogleFonts fallback
 class GoogleFonts {
@@ -61,7 +62,7 @@ class _ChatScreenState extends State<ChatScreen> {
       {
         'from': 'ai',
         'text':
-            "Namaste! 🙏 I'm your Kisan AI companion from Grid Sphere. 🌾\n\nI'm here to help you keep a close eye on your farm. I have your real-time data for Device ${widget.deviceId} ready! \n\nHow is your field doing today? Would you like me to check the soil health or recent rainfall for you?"
+            "Namaste! 剌 I'm your Kisan AI companion from Grid Sphere. 言\n\nI'm here to help you keep a close eye on your farm. I have your real-time data for Device ${widget.deviceId} ready! \n\nHow is your field doing today? Would you like me to check the soil health or recent rainfall for you?"
       }
     ];
   }
@@ -112,7 +113,7 @@ class _ChatScreenState extends State<ChatScreen> {
           _messages.add({
             'from': 'ai',
             'text':
-                "I'm having a little trouble connecting to the field experts right now. Please try again in a moment! 🚜"
+                "I'm having a little trouble connecting to the field experts right now. Please try again in a moment! 囿"
           });
         });
       }
@@ -122,7 +123,7 @@ class _ChatScreenState extends State<ChatScreen> {
           _messages.add({
             'from': 'ai',
             'text':
-                "It seems I've lost my connection to the sensors. Let me check my signal and try again soon! 📡"
+                "It seems I've lost my connection to the sensors. Let me check my signal and try again soon! 藤"
           });
         });
       }
@@ -153,103 +154,108 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9), // Light background
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF166534),
-        elevation: 0,
-        leading: const HomeBackButton(),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                shape: BoxShape.circle,
+    // --- UPDATED: Use HomePopScope Wrapper ---
+    return HomePopScope(
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF1F5F9), // Light background
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF166534),
+          elevation: 0,
+          leading: const HomeBackButton(),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child:
+                    const Icon(LucideIcons.bot, color: Colors.white, size: 20),
               ),
-              child: const Icon(LucideIcons.bot, color: Colors.white, size: 20),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Kisan AI",
+                    style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18),
+                  ),
+                  Text(
+                    "Smart Farm Assistant",
+                    style:
+                        GoogleFonts.inter(color: Colors.white70, fontSize: 11),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(LucideIcons.rotateCcw,
+                  color: Colors.white, size: 20),
+              tooltip: "Clear Chat",
+              onPressed: () {
+                setState(() {
+                  _messages.clear();
+                  _conversationId = null;
+                  _messages
+                      .add({'from': 'ai', 'text': 'How can I help you now?'});
+                });
+              },
             ),
-            const SizedBox(width: 12),
+          ],
+        ),
+        body: Stack(
+          children: [
+            // Decorative Background Elements
+            Positioned(
+              bottom: 100,
+              right: -50,
+              child: Icon(LucideIcons.leaf,
+                  size: 300, color: const Color(0xFF166534).withOpacity(0.03)),
+            ),
+            Positioned(
+              top: 50,
+              left: -30,
+              child: Icon(LucideIcons.sprout,
+                  size: 150, color: const Color(0xFF166534).withOpacity(0.03)),
+            ),
+
             Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  "Kisan AI",
-                  style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18),
+                // Chat History
+                Expanded(
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 20),
+                    itemCount: _messages.length + (_isLoading ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == _messages.length) {
+                        return _buildLoadingBubble();
+                      }
+
+                      final msg = _messages[index];
+                      final isUser = msg['from'] == 'user';
+
+                      return _buildMessageBubble(msg['text']!, isUser);
+                    },
+                  ),
                 ),
-                Text(
-                  "Smart Farm Assistant",
-                  style: GoogleFonts.inter(color: Colors.white70, fontSize: 11),
-                ),
+
+                // Quick Actions
+                _buildQuickActions(),
+
+                // Input Area
+                _buildInputArea(),
               ],
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.rotateCcw,
-                color: Colors.white, size: 20),
-            tooltip: "Clear Chat",
-            onPressed: () {
-              setState(() {
-                _messages.clear();
-                _conversationId = null;
-                _messages
-                    .add({'from': 'ai', 'text': 'How can I help you now?'});
-              });
-            },
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          // Decorative Background Elements
-          Positioned(
-            bottom: 100,
-            right: -50,
-            child: Icon(LucideIcons.leaf,
-                size: 300, color: const Color(0xFF166534).withOpacity(0.03)),
-          ),
-          Positioned(
-            top: 50,
-            left: -30,
-            child: Icon(LucideIcons.sprout,
-                size: 150, color: const Color(0xFF166534).withOpacity(0.03)),
-          ),
-
-          Column(
-            children: [
-              // Chat History
-              Expanded(
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                  itemCount: _messages.length + (_isLoading ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == _messages.length) {
-                      return _buildLoadingBubble();
-                    }
-
-                    final msg = _messages[index];
-                    final isUser = msg['from'] == 'user';
-
-                    return _buildMessageBubble(msg['text']!, isUser);
-                  },
-                ),
-              ),
-
-              // Quick Actions
-              _buildQuickActions(),
-
-              // Input Area
-              _buildInputArea(),
-            ],
-          ),
-        ],
       ),
     );
   }
