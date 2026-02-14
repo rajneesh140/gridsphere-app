@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'onboarding_ui_screen.dart'; // Import Navigation Target
+import 'sector_selection_screen.dart';
 
 class GoogleFonts {
   static TextStyle inter({
@@ -67,7 +68,7 @@ class _PasswordScreenState extends State<PasswordScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => const OnboardingUIScreen(),
+            builder: (context) => const SectorSelectionScreen(),
           ),
         );
       });

@@ -262,7 +262,7 @@ class _RegisterUIScreenState extends State<RegisterUIScreen>
                                   child: ElevatedButton(
                                     // --- UPDATED: Navigate to Password Screen ---
                                     onPressed: () {
-                                      Navigator.push(
+                                      Navigator.pushReplacement(
                                         context,
                                         MaterialPageRoute(
                                           builder: (context) =>

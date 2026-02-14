@@ -16,11 +16,6 @@ class _OnboardingUIScreenState extends State<OnboardingUIScreen> {
 
   final List<_IndustryItem> industries = [
     _IndustryItem(
-      title: "Agriculture",
-      subtitle: "Smart farming & soil monitoring",
-      icon: Icons.eco,
-    ),
-    _IndustryItem(
       title: "Chemical",
       subtitle: "Hazardous gas & levels tracking",
       icon: Icons.science,
