@@ -1,24 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Import this
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
-import 'login_screen.dart';
-import '../screens/dashboard_screen.dart';
-import '../session_manager/session_manager.dart'; // Import SessionManager
+import '../session_manager/session_manager.dart';
+import 'package:google_fonts/google_fonts.dart'; // The real package
 
-class GoogleFonts {
-  static TextStyle inter(
-      {double? fontSize,
-      FontWeight? fontWeight,
-      Color? color,
-      double? letterSpacing}) {
-    return TextStyle(
-        fontFamily: 'Inter',
-        fontSize: fontSize,
-        fontWeight: fontWeight,
-        color: color,
-        letterSpacing: letterSpacing);
-  }
-}
+// --- FIX: Use 'hide GoogleFonts' to ignore the local helpers in these files ---
+import 'login_screen.dart' hide GoogleFonts;
+import '../screens/dashboard_screen.dart' hide GoogleFonts;
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -56,7 +44,7 @@ class _SplashScreenState extends State<SplashScreen>
         SessionManager().setSessionCookie(sessionCookie);
         await SessionManager().loadRole();
 
-        // Cookie found -> Go to Dashboard (no params needed now)
+        // Cookie found -> Go to Dashboard
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const DashboardScreen()),
         );
@@ -98,19 +86,33 @@ class _SplashScreenState extends State<SplashScreen>
                         size: 64, color: Colors.white)),
               ),
               const SizedBox(height: 30),
-              Text("Grid Sphere Pvt. Ltd.",
-                  style: GoogleFonts.inter(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 1.2)),
+
+              // --- Title with Bruno Ace SC ---
+              Text(
+                "Grid Sphere",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.brunoAceSc(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 1.2,
+                ),
+              ),
+
               const SizedBox(height: 8),
-              Text("AgriTech Solutions",
-                  style: GoogleFonts.inter(
-                      fontSize: 16,
-                      color: Colors.white70,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.5)),
+
+              // --- Subtitle with Bruno Ace SC ---
+              Text(
+                "Technologies",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.brunoAceSc(
+                  fontSize: 16,
+                  color: Colors.white70,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.5,
+                ),
+              ),
+
               const SizedBox(height: 60),
               const CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),

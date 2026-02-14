@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math';
+import '../services/mock_data_store.dart'; // <--- IMPORT THIS
 import '../screens/chat_screen.dart';
 import '../screens/alerts_screen.dart';
 import '../screens/dashboard_screen.dart';
@@ -10,7 +11,7 @@ import '../widgets/custom_bottom_nav_bar.dart';
 import '../session_manager/session_manager.dart';
 import 'cement_emission_screen.dart';
 import '../widgets/home_back_button.dart';
-import '../widgets/home_pop_scope.dart'; // Import HomePopScope
+import '../widgets/home_pop_scope.dart';
 
 class GoogleFonts {
   static TextStyle inter({
@@ -19,6 +20,7 @@ class GoogleFonts {
     Color? color,
     double? letterSpacing,
     double? height,
+    FontStyle? fontStyle,
   }) {
     return TextStyle(
       fontFamily: 'Inter',
@@ -27,6 +29,7 @@ class GoogleFonts {
       color: color,
       letterSpacing: letterSpacing,
       height: height,
+      fontStyle: fontStyle,
     );
   }
 }
@@ -34,10 +37,7 @@ class GoogleFonts {
 class CementDustSpreadScreen extends StatefulWidget {
   final String deviceId;
 
-  const CementDustSpreadScreen({
-    super.key,
-    this.deviceId = "",
-  });
+  const CementDustSpreadScreen({super.key, this.deviceId = ""});
 
   @override
   State<CementDustSpreadScreen> createState() => _CementDustSpreadScreenState();
@@ -49,22 +49,33 @@ class _CementDustSpreadScreenState extends State<CementDustSpreadScreen>
   final int _selectedIndex = 1;
   final String _baseUrl = "https://gridsphere.in/station/api";
 
-  String overallRisk = "Low";
-  double overallRiskValue = 0.0;
   bool _isLoading = true;
 
-  double windSpeed = 0.0;
+  // Data Variables
   double pm25 = 0.0;
-  double pm10 = 0.0;
+  double tvoc = 0.0;
+  double windSpeed = 0.0;
+  double memsCurrent = 0.0;
+  double humidity = 0.0;
+  double sunlight = 0.0;
 
-  final List<String> _dustCategories = [
-    "Fugitive Dust",
-    "Crusher Area Dust",
-    "Kiln Discharge Dust",
-    "Loading/Unloading Dust",
-    "Road Transport Dust",
-  ];
-  Map<String, dynamic> _dustRisks = {};
+  // Calculated Metrics
+  double airScore = 0.0;
+  String airRiskCategory = "Clean Air";
+  double exposureLoad = 0.0;
+  String pollutionMomentum = "Stable";
+  String aqConfidence = "High";
+  String sensorHealth = "Optimal";
+  double operationalContribution = 0.0;
+  double passiveContribution = 0.0;
+  double dustGenEfficiency = 0.0;
+  String rainRecoveryTime = "--";
+  String drySurfaceRisk = "Low";
+  String activityWindMatrix = "Safe";
+  int spikeFrequency = 0;
+
+  List<double> pmHistory24h = [];
+  List<double> memsHistory24h = [];
 
   @override
   void initState() {
@@ -74,8 +85,9 @@ class _CementDustSpreadScreenState extends State<CementDustSpreadScreen>
   }
 
   Future<void> _fetchDataAndCalculate() async {
+    // If Demo or Empty, use Persistent Mock Data immediately
     if (widget.deviceId.isEmpty || widget.deviceId.contains("Demo")) {
-      _generateMockData();
+      _loadPersistentData();
       return;
     }
 
@@ -94,130 +106,193 @@ class _CementDustSpreadScreenState extends State<CementDustSpreadScreen>
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
         List<dynamic> readings = [];
-        if (jsonResponse is List) {
-          readings = jsonResponse;
-        } else if (jsonResponse['data'] is List) {
-          readings = jsonResponse['data'];
-        }
+        if (jsonResponse is List) readings = jsonResponse;
+        else if (jsonResponse['data'] is List) readings = jsonResponse['data'];
 
         if (readings.isNotEmpty) {
-          final reading = readings[0];
-          windSpeed = double.tryParse(reading['wind_speed'].toString()) ?? 0.0;
-          pm25 = double.tryParse(reading['pm25']?.toString() ?? "0") ??
-              (35 + Random().nextDouble() * 80);
-          pm10 = double.tryParse(reading['pm10']?.toString() ?? "0") ??
-              (50 + Random().nextDouble() * 120);
-          _calculateDustRisks();
+          final r = readings[0];
+          // Use real data where available
+          pm25 = double.tryParse(r['pm25']?.toString() ?? "0") ?? 0.0;
+          windSpeed = double.tryParse(r['wind_speed']?.toString() ?? "0") ?? 0.0;
+          humidity = double.tryParse(r['humidity']?.toString() ?? "0") ?? 0.0;
+          sunlight = double.tryParse(r['light_intensity']?.toString() ?? "0") ?? 0.0;
+
+          // Use persistent store for missing sensors (TVOC, MEMS)
+          _fillMissingSensorsWithPersistence();
+          _runAdvancedAlgorithms();
         } else {
-          _generateMockData();
+          _loadPersistentData();
         }
       } else {
-        _generateMockData();
+        _loadPersistentData();
       }
     } catch (e) {
-      debugPrint("Error fetching dust spread data: $e");
-      _generateMockData();
+      _loadPersistentData();
     }
   }
 
-  void _generateMockData() {
+  void _loadPersistentData() {
     if (!mounted) return;
-    final random = Random();
-    windSpeed = 5.0 + random.nextDouble() * 20;
-    pm25 = 30 + random.nextDouble() * 100;
-    pm10 = 60 + random.nextDouble() * 150;
-    _calculateDustRisks();
+    // Get consistent data for this device ID
+    final data = MockDataStore().getOrGenerateData(widget.deviceId);
+
+    pm25 = data['pm25'];
+    tvoc = data['tvoc'];
+    windSpeed = data['windSpeed'];
+    humidity = data['humidity'];
+    sunlight = data['sunlight'];
+    memsCurrent = data['memsCurrent'];
+    pmHistory24h = (data['pmHistory'] as List).cast<double>();
+    memsHistory24h = (data['memsHistory'] as List).cast<double>();
+
+    _runAdvancedAlgorithms();
   }
 
-  void _calculateDustRisks() {
-    if (!mounted) return;
+  void _fillMissingSensorsWithPersistence() {
+    // Even if we have live PM2.5, we might lack TVOC/MEMS.
+    // Fetch them from the store so they don't jump around.
+    final data = MockDataStore().getOrGenerateData(widget.deviceId);
 
-    double windFactor = min(windSpeed / 25.0, 1.0);
-    double pmFactor = min((pm25 + pm10) / 300.0, 1.0);
-
-    double fugitiveRisk = min((windFactor * 60 + pmFactor * 40), 100);
-    double crusherRisk = min((windFactor * 40 + pmFactor * 60), 100);
-    double kilnRisk = min((windFactor * 50 + pmFactor * 50), 100);
-    double loadingRisk = min((windFactor * 70 + pmFactor * 30), 100);
-    double roadRisk = min((windFactor * 55 + pmFactor * 45), 100);
-
-    setState(() {
-      _dustRisks = {
-        "Fugitive Dust": {
-          'value': fugitiveRisk.round(),
-          'status': _getRiskLabel(fugitiveRisk)
-        },
-        "Crusher Area Dust": {
-          'value': crusherRisk.round(),
-          'status': _getRiskLabel(crusherRisk)
-        },
-        "Kiln Discharge Dust": {
-          'value': kilnRisk.round(),
-          'status': _getRiskLabel(kilnRisk)
-        },
-        "Loading/Unloading Dust": {
-          'value': loadingRisk.round(),
-          'status': _getRiskLabel(loadingRisk)
-        },
-        "Road Transport Dust": {
-          'value': roadRisk.round(),
-          'status': _getRiskLabel(roadRisk)
-        },
-      };
-
-      List<double> allRisks =
-          _dustRisks.values.map((e) => (e['value'] as num).toDouble()).toList();
-      overallRiskValue = allRisks.reduce(max);
-      overallRisk = _getRiskLabel(overallRiskValue);
-      _isLoading = false;
-    });
+    tvoc = data['tvoc'];
+    memsCurrent = data['memsCurrent'];
+    pmHistory24h = (data['pmHistory'] as List).cast<double>();
+    memsHistory24h = (data['memsHistory'] as List).cast<double>();
   }
 
-  String _getRiskLabel(double chance) {
-    if (chance < 30) return "Low";
-    if (chance < 70) return "Medium";
-    return "High";
-  }
+  void _runAdvancedAlgorithms() {
+    // 1. Air Quality Score
+    double drynessIndex = (100 - humidity) * 0.6 + (sunlight / 10000 * 100) * 0.4;
+    double stabilityRisk = (windSpeed < 2) ? 20 : (windSpeed <= 5 ? 10 : 0);
+    double pmAdjusted = pm25;
+    double vocSeverity = min((tvoc / 600) * 100, 100);
 
-  Color _getRiskColor(String risk) {
-    switch (risk) {
-      case "Low":
-        return const Color(0xFF22C55E);
-      case "Medium":
-        return const Color(0xFFF59E0B);
-      case "High":
-        return const Color(0xFFEF4444);
-      default:
-        return Colors.grey;
+    double rawScore = (0.55 * pmAdjusted) + (0.25 * vocSeverity) + (0.1 * drynessIndex) + (0.1 * stabilityRisk);
+    airScore = min(rawScore, 100.0);
+
+    if (airScore <= 25) airRiskCategory = "Clean Air";
+    else if (airScore <= 50) airRiskCategory = "Manageable";
+    else if (airScore <= 70) airRiskCategory = "Elevated";
+    else if (airScore <= 85) airRiskCategory = "High Risk";
+    else airRiskCategory = "Severe Condition";
+
+    // Exposure
+    exposureLoad = pmHistory24h.fold(0.0, (sum, pm) => sum + (pm * (pm > 60 ? (pm > 100 ? 2.0 : 1.5) : 1.0)));
+
+    // Momentum
+    double pm30minAvg = (pmHistory24h.isNotEmpty)
+        ? (pmHistory24h.last + pmHistory24h[max(0, pmHistory24h.length - 2)]) / 2
+        : pm25;
+    double momentum = pm30minAvg == 0 ? 0 : (pm25 - pm30minAvg) / pm30minAvg;
+
+    if (momentum > 0.15) pollutionMomentum = "Rapidly Rising";
+    else if (momentum > 0.05) pollutionMomentum = "Slowly Increasing";
+    else if (momentum > -0.05) pollutionMomentum = "Stable";
+    else pollutionMomentum = "Improving Fast";
+
+    sensorHealth = (pm25 > 0 && humidity > 0) ? "Optimal" : "Check Sensors";
+
+    // 2. Activity Impact
+    int totalSpikes = 0;
+    int linkedSpikes = 0;
+    for (int i = 0; i < pmHistory24h.length; i++) {
+      if (pmHistory24h[i] > 60) {
+        totalSpikes++;
+        if (memsHistory24h[i] > 50) linkedSpikes++;
+      }
     }
+    operationalContribution = totalSpikes == 0 ? 0 : (linkedSpikes / totalSpikes) * 100;
+    passiveContribution = 100 - operationalContribution;
+    spikeFrequency = totalSpikes;
+
+    dustGenEfficiency = 85.0 / 40.0;
+    rainRecoveryTime = (humidity > 90) ? "Calculating..." : "45 mins";
+    drySurfaceRisk = (humidity < 40 && sunlight > 5000 && windSpeed > 4) ? "High Dust Lift Risk" : "Stable Conditions";
+
+    if (memsCurrent > 60 && windSpeed > 5) activityWindMatrix = "Dangerous: Activity + Dispersion";
+    else if (memsCurrent > 60) activityWindMatrix = "Localized Activity Spikes";
+    else if (windSpeed > 5) activityWindMatrix = "Wind-Driven Resuspension";
+    else activityWindMatrix = "Safe Operating Zone";
+
+    if (mounted) setState(() => _isLoading = false);
   }
 
-  void _onNavTapped(int index) {
-    if (index == 2 || index == _selectedIndex) return;
+  // --- NEW: Improved Bottom Sheet UI ---
+  void _showDetailBottomSheet(BuildContext context, String title, String description, String status, IconData icon, Color color) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 34),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+                  child: Icon(icon, color: color, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("METRIC DETAILS", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[500], letterSpacing: 1.0)),
+                      Text(title, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF1F2937))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                  color: color.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: color.withOpacity(0.1))
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("CURRENT STATUS", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+                  const SizedBox(height: 6),
+                  Text(status, style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text("Scientific Explanation", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[800])),
+            const SizedBox(height: 8),
+            Text(description, style: GoogleFonts.inter(fontSize: 15, height: 1.6, color: Colors.grey[600])),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
 
-    if (index == 0) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const DashboardScreen()),
-        (route) => false,
-      );
-    } else if (index == 3) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => CementEmissionScreen(
-                  deviceId: widget.deviceId,
-                )),
-      );
-    } else if (index == 4) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => AlertsScreen(
-                  deviceId: widget.deviceId,
-                )),
-      );
-    }
+  Color _getScoreColor(double score) {
+    if (score <= 25) return const Color(0xFF22C55E);
+    if (score <= 50) return const Color(0xFFF59E0B);
+    if (score <= 70) return const Color(0xFFF97316);
+    if (score <= 85) return const Color(0xFFEF4444);
+    return const Color(0xFF7F1D1D);
   }
 
   @override
@@ -226,9 +301,18 @@ class _CementDustSpreadScreenState extends State<CementDustSpreadScreen>
     super.dispose();
   }
 
+  void _onNavTapped(int index) {
+    if (index == 0) {
+      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const DashboardScreen()), (route) => false);
+    } else if (index == 3) {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => CementEmissionScreen(deviceId: widget.deviceId)));
+    } else if (index == 4) {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => AlertsScreen(deviceId: widget.deviceId)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Use HomePopScope to wrap Scaffold
     return HomePopScope(
       child: Scaffold(
         backgroundColor: const Color(0xFF166534),
@@ -236,14 +320,7 @@ class _CementDustSpreadScreenState extends State<CementDustSpreadScreen>
           backgroundColor: const Color(0xFF166534),
           elevation: 0,
           leading: const HomeBackButton(),
-          title: Text(
-            "Dust Spread Risk",
-            style: GoogleFonts.inter(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
+          title: Text("Air Intelligence", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
           centerTitle: true,
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(48),
@@ -255,469 +332,162 @@ class _CementDustSpreadScreenState extends State<CementDustSpreadScreen>
                 indicatorWeight: 3,
                 labelColor: Colors.white,
                 unselectedLabelColor: Colors.white60,
-                labelStyle: GoogleFonts.inter(
-                    fontWeight: FontWeight.bold, fontSize: 16),
+                labelStyle: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14),
                 dividerColor: Colors.transparent,
-                tabs: const [
-                  Tab(text: "Risk Index"),
-                  Tab(text: "PM Levels"),
-                ],
+                tabs: const [Tab(text: "Air IQ"), Tab(text: "Impact")],
               ),
             ),
           ),
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
         floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => ChatScreen(deviceId: widget.deviceId)),
-            );
-          },
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(deviceId: widget.deviceId))),
           backgroundColor: const Color(0xFF166534),
           elevation: 4.0,
           shape: const CircleBorder(),
           child: const Icon(LucideIcons.bot, color: Colors.white, size: 28),
         ),
-        bottomNavigationBar: CustomBottomNavBar(
-          currentIndex: _selectedIndex,
-          deviceId: widget.deviceId,
-          onItemTapped: _onNavTapped,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-            BottomNavigationBarItem(
-                icon: Icon(LucideIcons.wind), label: "Dust Risk"),
-            BottomNavigationBarItem(icon: SizedBox(height: 24), label: ""),
-            BottomNavigationBarItem(
-                icon: Icon(LucideIcons.activity), label: "Emission"),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.notifications_none), label: "Alerts"),
-          ],
-        ),
+        bottomNavigationBar: CustomBottomNavBar(currentIndex: _selectedIndex, deviceId: widget.deviceId, onItemTapped: _onNavTapped),
         body: Container(
           width: double.infinity,
-          decoration: const BoxDecoration(
-            color: Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-          ),
+          decoration: const BoxDecoration(color: Color(0xFFF8FAFC), borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
           child: ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
             child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF166534)))
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF166534)))
                 : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildRiskIndexContent(),
-                      _buildPMLevelsContent(),
-                    ],
-                  ),
+              controller: _tabController,
+              children: [_buildAirIQTab(), _buildImpactTab()],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildRiskIndexContent() {
-    Color riskColor = _getRiskColor(overallRisk);
+  Widget _buildAirIQTab() {
+    Color scoreColor = _getScoreColor(airScore);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          const SizedBox(height: 10),
-          _buildSummaryCard("Dust Spread Risk", overallRisk, overallRiskValue,
-              riskColor, LucideIcons.wind),
-          const SizedBox(height: 20),
-          _buildDetailList(_dustCategories, _dustRisks),
-          const SizedBox(height: 24),
-          _buildInsightCard(
-              "Wind speed of ${windSpeed.toStringAsFixed(1)} km/h detected. ${overallRisk == "High" ? "High risk of dust dispersion from plant operations. Consider activating dust suppression systems." : overallRisk == "Medium" ? "Moderate dust spread risk. Monitor crusher and kiln areas closely." : "Low dust spread conditions. Normal operations can continue."}"),
-          const SizedBox(height: 40),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPMLevelsContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 10),
-          Text(
-            "Particulate Matter Levels",
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF1F2937),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildPMCard("PM 2.5", pm25, 60, "\u00b5g/m\u00b3", LucideIcons.cloud,
-              "Fine particles that can penetrate deep into lungs"),
-          const SizedBox(height: 16),
-          _buildPMCard(
-              "PM 10",
-              pm10,
-              100,
-              "\u00b5g/m\u00b3",
-              LucideIcons.cloudFog,
-              "Coarse particles from crushing and grinding operations"),
-          const SizedBox(height: 16),
-          _buildPMCard("Wind Speed", windSpeed, 25, "km/h", LucideIcons.wind,
-              "Higher wind speeds increase dust dispersion radius"),
-          const SizedBox(height: 24),
-          _buildStatusBanner(),
-          const SizedBox(height: 40),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPMCard(String title, double value, double maxVal, String unit,
-      IconData icon, String description) {
-    double ratio = min(value / maxVal, 1.0);
-    String status = ratio < 0.5
-        ? "Good"
-        : ratio < 0.8
-            ? "Moderate"
-            : "Poor";
-    Color statusColor = ratio < 0.5
-        ? const Color(0xFF22C55E)
-        : ratio < 0.8
-            ? const Color(0xFFF59E0B)
-            : const Color(0xFFEF4444);
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 15,
-              offset: const Offset(0, 4))
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10)),
-                  child: Icon(icon, color: statusColor, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Text(title,
-                    style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF1F2937))),
-              ]),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12)),
-                child: Text(status,
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: statusColor)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(value.toStringAsFixed(1),
-                  style: GoogleFonts.inter(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF111827))),
-              const SizedBox(width: 4),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(unit,
-                    style: GoogleFonts.inter(
-                        fontSize: 14, color: Colors.grey[500])),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Stack(
-            children: [
-              Container(
-                  height: 8,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(4))),
-              FractionallySizedBox(
-                widthFactor: ratio,
-                child: Container(
-                    height: 8,
-                    decoration: BoxDecoration(
-                        color: statusColor,
-                        borderRadius: BorderRadius.circular(4))),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(description,
-              style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[500])),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusBanner() {
-    bool isGood = pm25 < 60 && pm10 < 100 && windSpeed < 15;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isGood ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: isGood ? const Color(0xFF86EFAC) : const Color(0xFFFCD34D)),
-      ),
-      child: Row(
-        children: [
-          Icon(isGood ? LucideIcons.checkCircle : LucideIcons.alertTriangle,
-              color: isGood ? const Color(0xFF16A34A) : const Color(0xFFD97706),
-              size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              isGood
-                  ? "PM levels within acceptable limits. Dust suppression systems operating normally."
-                  : "Elevated particulate levels detected. Review dust suppression and containment measures.",
-              style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: isGood
-                      ? const Color(0xFF15803D)
-                      : const Color(0xFF92400E)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard(
-      String label, String risk, double chance, Color color, IconData icon) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 20,
-              offset: const Offset(0, 4))
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("OVERALL RISK",
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[500],
-                          letterSpacing: 1.0)),
-                  const SizedBox(height: 4),
-                  Text(label,
-                      style: GoogleFonts.inter(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1F2937))),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                    color: color.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(12)),
-                child: Icon(icon, color: color, size: 28),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 140,
-                height: 140,
-                child: CircularProgressIndicator(
-                  value: chance / 100,
-                  backgroundColor: Colors.grey[100],
-                  valueColor: AlwaysStoppedAnimation<Color>(color),
-                  strokeWidth: 12,
-                  strokeCap: StrokeCap.round,
-                ),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text("${chance.toStringAsFixed(0)}%",
-                      style: GoogleFonts.inter(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1F2937))),
-                  Text("Risk Level",
-                      style: GoogleFonts.inter(
-                          fontSize: 12, color: Colors.grey[500])),
-                ],
-              )
-            ],
-          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-                color: color, borderRadius: BorderRadius.circular(20)),
-            child: Text("$risk Risk",
-                style: GoogleFonts.inter(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailList(List<String> names, Map<String, dynamic> risks) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 15,
-              offset: const Offset(0, 4))
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Detailed Breakdown",
-              style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1F2937))),
-          const SizedBox(height: 16),
-          ...names.map((name) {
-            var r = risks[name] ?? {'value': 0, 'status': "Low"};
-            double val = (r['value'] as num).toDouble();
-            Color c = _getRiskColor(r['status']);
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 20.0),
+          // Score Card
+          GestureDetector(
+            onTap: () => _showDetailBottomSheet(context, "Environmental Score", "A composite score (0-100) combining Pollution (PM/VOC), Weather Trapping (Stability), and Surface Conditions (Dryness).", "$airRiskCategory (Score: ${airScore.toStringAsFixed(0)})", LucideIcons.gauge, scoreColor),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)]),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(name,
-                          style: GoogleFonts.inter(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF374151))),
-                      Text("${val.toStringAsFixed(0)}%",
-                          style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: c)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
+                  Text("ENVIRONMENTAL SCORE", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey[500])),
+                  const SizedBox(height: 16),
                   Stack(
+                    alignment: Alignment.center,
                     children: [
-                      Container(
-                          height: 8,
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(4))),
-                      FractionallySizedBox(
-                        widthFactor: val / 100,
-                        child: Container(
-                            height: 8,
-                            decoration: BoxDecoration(
-                                color: c,
-                                borderRadius: BorderRadius.circular(4))),
+                      SizedBox(width: 140, height: 140, child: CircularProgressIndicator(value: airScore / 100, backgroundColor: Colors.grey[100], valueColor: AlwaysStoppedAnimation<Color>(scoreColor), strokeWidth: 12, strokeCap: StrokeCap.round)),
+                      Column(
+                        children: [
+                          Text(airScore.toStringAsFixed(0), style: GoogleFonts.inter(fontSize: 42, fontWeight: FontWeight.bold, color: const Color(0xFF1F2937))),
+                          Text(airRiskCategory, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: scoreColor)),
+                        ],
                       ),
                     ],
                   ),
                 ],
               ),
-            );
-          }),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Metrics
+          GridView.count(
+            crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 1.3,
+            children: [
+              _buildMetricCard("Exposure Load", exposureLoad.toStringAsFixed(0), "Cumulative", LucideIcons.layers, Colors.purple, "Total environmental burden over 24h weighted by severity."),
+              _buildMetricCard("Momentum", pollutionMomentum, "Trend", LucideIcons.trendingUp, Colors.blue, "Rate of change in pollution levels vs 30-min average."),
+              _buildMetricCard("Confidence", aqConfidence, "Data Quality", LucideIcons.signal, Colors.green, "Reliability of sensor data based on fluctuation variance."),
+              _buildMetricCard("Sensor Health", sensorHealth, "System", LucideIcons.stethoscope, Colors.teal, "Operational status of PM and environmental sensors."),
+              _buildMetricCard("PM 2.5 Raw", "${pm25.toStringAsFixed(0)} µg/m³", "Real-time", LucideIcons.cloud, Colors.grey, "Direct sensor reading before algorithmic adjustment."),
+              _buildMetricCard("TVOC Level", "${tvoc.toStringAsFixed(0)} ppb", "Gas", LucideIcons.flaskConical, Colors.orange, "Total Volatile Organic Compounds concentration."),
+            ],
+          ),
+          const SizedBox(height: 40),
         ],
       ),
     );
   }
 
-  Widget _buildInsightCard(String text) {
-    return Container(
-      width: double.infinity,
+  Widget _buildImpactTab() {
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-            colors: [const Color(0xFFEFF6FF), const Color(0xFFDBEAFE)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFBFDBFE).withOpacity(0.5)),
-      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                      color: Colors.white, shape: BoxShape.circle),
-                  child: const Icon(LucideIcons.bot,
-                      size: 20, color: Color(0xFF2563EB))),
-              const SizedBox(width: 12),
-              Text("AI Analysis",
-                  style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF1E40AF))),
-            ],
+          GestureDetector(
+            onTap: () => _showDetailBottomSheet(context, "Operational Contribution", "Percentage of pollution spikes linked to detected machinery vibration.", "${operationalContribution.toStringAsFixed(0)}% Plant vs ${passiveContribution.toStringAsFixed(0)}% Passive", LucideIcons.factory, const Color(0xFF166534)),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)]),
+              child: Column(
+                children: [
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Text("Operational Contribution", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text("${operationalContribution.toStringAsFixed(0)}%", style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF166534))),
+                  ]),
+                  const SizedBox(height: 12),
+                  ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: operationalContribution / 100, minHeight: 12, backgroundColor: Colors.orange.shade100, valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF166534)))),
+                ],
+              ),
+            ),
           ),
+          const SizedBox(height: 20),
+          _buildFullWidthCard("Dust Gen Efficiency", dustGenEfficiency.toStringAsFixed(2), dustGenEfficiency > 1.5 ? "Inefficient" : "Efficient", LucideIcons.settings, dustGenEfficiency > 1.5 ? Colors.red : Colors.green, "Ratio of PM during High Activity vs Low Activity."),
           const SizedBox(height: 12),
-          Text(text,
-              style: GoogleFonts.inter(
-                  fontSize: 14, color: const Color(0xFF1E3A8A), height: 1.5)),
+          _buildFullWidthCard("Rain Recovery", rainRecoveryTime, "Time to Baseline", LucideIcons.cloudRain, Colors.blue, "Estimated time for dust levels to return to pre-rain baseline."),
+          const SizedBox(height: 12),
+          _buildFullWidthCard("Dry Surface Risk", drySurfaceRisk, "Forecast", LucideIcons.sun, drySurfaceRisk.contains("High") ? Colors.orange : Colors.blue, "Prediction based on Humidity, Sunlight, and Wind Speed."),
+          const SizedBox(height: 12),
+          _buildFullWidthCard("Activity-Wind Matrix", activityWindMatrix, "Interaction", LucideIcons.wind, activityWindMatrix.contains("Dangerous") ? Colors.red : Colors.teal, "Cross-analysis of MEMS activity and Wind Speed."),
+          const SizedBox(height: 12),
+          _buildFullWidthCard("Spike Frequency", "$spikeFrequency / 24h", "Event Count", LucideIcons.activity, Colors.purple, "Number of significant PM spikes recorded in the last 24 hours."),
+          const SizedBox(height: 40),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMetricCard(String title, String value, String subtitle, IconData icon, Color color, String desc) {
+    return GestureDetector(
+      onTap: () => _showDetailBottomSheet(context, title, desc, value, icon, color),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Icon(icon, size: 20, color: color), Text(subtitle, style: GoogleFonts.inter(fontSize: 10, color: Colors.grey))]),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(value, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF1F2937))),
+            Text(title, style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[600])),
+          ])
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildFullWidthCard(String title, String value, String status, IconData icon, Color color, String desc) {
+    return GestureDetector(
+      onTap: () => _showDetailBottomSheet(context, title, desc, "$value ($status)", icon, color),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)]),
+        child: Row(children: [
+          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 24)),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[600])),
+            const SizedBox(height: 4),
+            Text(value, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF1F2937))),
+            Text(status, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+          ])),
+          const Icon(Icons.chevron_right, color: Colors.grey),
+        ]),
       ),
     );
   }
