@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'dart:math';
-import '../services/mock_data_store.dart'; // <--- IMPORT THIS
+// import 'package:http/http.dart' as http; // <-- Removed
+// import 'dart:convert'; // <-- Removed
+
+import '../services/mock_data_store.dart';
 import '../screens/chat_screen.dart';
 import '../screens/alerts_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../widgets/custom_bottom_nav_bar.dart';
-import '../session_manager/session_manager.dart';
-import 'cement_dust_spread_screen.dart';
 import '../widgets/home_back_button.dart';
 import '../widgets/home_pop_scope.dart';
+import 'cement_dust_spread_screen.dart';
+
+// --- IMPORT NEW SERVICE ---
+import '../services/receive_readings.dart';
 
 class GoogleFonts {
   static TextStyle inter({
@@ -48,7 +51,9 @@ class _CementEmissionScreenState extends State<CementEmissionScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final int _selectedIndex = 3;
-  final String _baseUrl = "https://gridsphere.in/station/api";
+
+  // --- SERVICE INSTANCE ---
+  final ReadingsService _readingsService = ReadingsService();
 
   bool _isLoading = true;
 
@@ -60,7 +65,7 @@ class _CementEmissionScreenState extends State<CementEmissionScreen>
   double humidity = 0.0;
   double sunlight = 0.0;
 
-  // Tab 3
+  // Tab 3 Calculations
   String windEffect = "Neutral";
   double calmAccumulationScore = 0.0;
   double humiditySuppression = 0.0;
@@ -68,7 +73,7 @@ class _CementEmissionScreenState extends State<CementEmissionScreen>
   double solarDryingEffect = 0.0;
   String dominantSector = "Unknown";
 
-  // Tab 4
+  // Tab 4 Calculations
   double pm24hAvg = 0.0;
   bool isCompliant = true;
   String complianceRisk = "Low";
@@ -87,6 +92,7 @@ class _CementEmissionScreenState extends State<CementEmissionScreen>
     _fetchDataAndCalculate();
   }
 
+  // --- UPDATED FETCH FUNCTION ---
   Future<void> _fetchDataAndCalculate() async {
     if (widget.deviceId.isEmpty || widget.deviceId.contains("Demo")) {
       _loadPersistentData();
@@ -94,61 +100,81 @@ class _CementEmissionScreenState extends State<CementEmissionScreen>
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/live-data/${widget.deviceId}'),
-        headers: {
-          'Cookie': SessionManager().sessionCookie,
-          'User-Agent': 'FlutterApp',
-          'Accept': 'application/json',
-        },
-      );
+      // 1. Fetch Live Reading
+      final reading = await _readingsService.fetchLive(widget.deviceId);
+
+      // 2. Fetch History (for Compliance Calcs)
+      final history = await _readingsService.fetchLast7Days(widget.deviceId);
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
-        List<dynamic> readings = [];
-        if (jsonResponse is List) readings = jsonResponse;
-        else if (jsonResponse['data'] is List) readings = jsonResponse['data'];
+      if (reading != null) {
+        // --- DEBUG PRINT ---
+        debugPrint("\n🏭 --- CEMENT EMISSION DATA ---");
+        debugPrint("PM2.5: ${reading.pm25}");
+        debugPrint("Wind: ${reading.windSpeed} m/s @ ${reading.windDirection}°");
+        debugPrint("Pressure: ${reading.pressure}");
+        debugPrint("Sunlight: ${reading.light}");
+        debugPrint("History Points Found: ${history.length}");
+        debugPrint("------------------------------\n");
+        // -------------------
 
-        if (readings.isNotEmpty) {
-          final r = readings[0];
-          windSpeed = double.tryParse(r['wind_speed']?.toString() ?? "0") ?? 0.0;
-          pm25 = double.tryParse(r['pm25']?.toString() ?? "0") ?? 0.0;
-          pressure = double.tryParse(r['pressure']?.toString() ?? "1013") ?? 1013.0;
-          humidity = double.tryParse(r['humidity']?.toString() ?? "0") ?? 0.0;
-          sunlight = double.tryParse(r['light_intensity']?.toString() ?? "0") ?? 0.0;
+        setState(() {
+          windSpeed = reading.windSpeed;
+          windDirection = reading.windDirection; // Now using real direction
+          pm25 = reading.pm25;
+          pressure = reading.pressure > 0 ? reading.pressure : 1013.0;
+          humidity = reading.humidity;
+          sunlight = reading.light;
 
-          _fillMissingSensorsWithPersistence();
-          _runSuperTabAlgorithms();
-        } else {
-          _loadPersistentData();
-        }
+          // Process History for the "hourlyPmLast24" array
+          if (history.isNotEmpty) {
+            // Take up to the last 24 points from history for calculations
+            // If history is less than 24, we fill the rest with the current PM2.5
+            List<double> recentHistory = history.take(24).map((r) => r.pm25).toList();
+
+            // Ensure we have at least some data in the list
+            if (recentHistory.length < 24) {
+              int missing = 24 - recentHistory.length;
+              recentHistory.addAll(List.filled(missing, pm25));
+            }
+            hourlyPmLast24 = recentHistory;
+          } else {
+            // Fallback if no history: Generate a flat line based on current PM
+            hourlyPmLast24 = List.generate(24, (index) => pm25);
+          }
+        });
+
+        _runSuperTabAlgorithms();
       } else {
         _loadPersistentData();
       }
     } catch (e) {
+      debugPrint("Error in cement fetch: $e");
       _loadPersistentData();
     }
   }
 
   void _loadPersistentData() {
     if (!mounted) return;
+    debugPrint("⚠️ Loading Mock/Persistent Data");
     final data = MockDataStore().getOrGenerateData(widget.deviceId);
 
-    pm25 = data['pm25'];
-    windSpeed = data['windSpeed'];
-    pressure = data['pressure'];
-    humidity = data['humidity'];
-    sunlight = data['sunlight'];
-
-    // Arrays & specialized fields
-    windDirection = data['windDirection'];
-    hourlyPmLast24 = (data['pmHistory'] as List).cast<double>();
+    setState(() {
+      pm25 = data['pm25'];
+      windSpeed = data['windSpeed'];
+      pressure = data['pressure'];
+      humidity = data['humidity'];
+      sunlight = data['sunlight'];
+      windDirection = data['windDirection'];
+      hourlyPmLast24 = (data['pmHistory'] as List).cast<double>();
+    });
 
     _runSuperTabAlgorithms();
   }
 
+  // NOTE: This function is technically redundant if we fetch history from API,
+  // but good to keep as a failsafe helper.
   void _fillMissingSensorsWithPersistence() {
     final data = MockDataStore().getOrGenerateData(widget.deviceId);
     windDirection = data['windDirection'];
@@ -162,9 +188,12 @@ class _CementEmissionScreenState extends State<CementEmissionScreen>
     else if (windSpeed < 2) windEffect = "Calm Accumulation";
     else windEffect = "Neutral Transport";
 
-    double avgGlobal = hourlyPmLast24.reduce((a, b) => a + b) / 24;
+    // Safety check for empty array
+    if (hourlyPmLast24.isEmpty) hourlyPmLast24 = List.filled(24, pm25);
+
+    double avgGlobal = hourlyPmLast24.reduce((a, b) => a + b) / hourlyPmLast24.length;
     double avgCalm = avgGlobal * 1.4;
-    calmAccumulationScore = avgCalm / avgGlobal;
+    calmAccumulationScore = avgCalm / (avgGlobal == 0 ? 1 : avgGlobal);
 
     humiditySuppression = (100 - humidity) * 0.5;
 
@@ -179,10 +208,14 @@ class _CementEmissionScreenState extends State<CementEmissionScreen>
     else dominantSector = "Undefined Sector";
 
     // --- TAB 4: COMPLIANCE ---
-    pm24hAvg = hourlyPmLast24.reduce((a, b) => a + b) / 24;
-    isCompliant = pm24hAvg <= 60; // Class-level assignment
+    pm24hAvg = avgGlobal;
+    isCompliant = pm24hAvg <= 60;
 
-    double pm6hAvg = hourlyPmLast24.sublist(18).reduce((a, b) => a + b) / 6;
+    // Calculate 6h avg (safe check for list length)
+    int len = hourlyPmLast24.length;
+    int start = len > 6 ? len - 6 : 0;
+    double pm6hAvg = hourlyPmLast24.sublist(start).fold(0.0, (a, b) => a + b) / (len - start);
+
     complianceRisk = pm6hAvg > (60 * 0.7) ? "High Risk" : "Low Risk";
 
     double sumExcess = 0;
@@ -191,7 +224,7 @@ class _CementEmissionScreenState extends State<CementEmissionScreen>
 
     double mean = pm24hAvg;
     double sumSquaredDiff = hourlyPmLast24.map((x) => pow(x - mean, 2)).reduce((a, b) => a + b).toDouble();
-    complianceStability = sqrt(sumSquaredDiff / 24);
+    complianceStability = sqrt(sumSquaredDiff / hourlyPmLast24.length);
 
     performanceScore = max(0, 100 - ((pm24hAvg / 60) * 100));
     controlEffectiveness = isCompliant ? "Sprinklers Active" : "Review Controls";

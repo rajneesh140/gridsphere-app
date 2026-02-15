@@ -85,48 +85,90 @@ class _CementDustSpreadScreenState extends State<CementDustSpreadScreen>
   }
 
   Future<void> _fetchDataAndCalculate() async {
-    // If Demo or Empty, use Persistent Mock Data immediately
+    // 1. Safety Check: Use Mock Data for Demo/Empty IDs
     if (widget.deviceId.isEmpty || widget.deviceId.contains("Demo")) {
       _loadPersistentData();
       return;
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/live-data/${widget.deviceId}'),
-        headers: {
-          'Cookie': SessionManager().sessionCookie,
-          'User-Agent': 'FlutterApp',
-          'Accept': 'application/json',
-        },
-      );
+      // 2. Define Headers (Reuse for both calls)
+      final headers = {
+        'Cookie': SessionManager().sessionCookie, // vital for auth
+        'User-Agent': 'FlutterApp',
+        'Accept': 'application/json',
+      };
+
+      // 3. Parallel API Calls: Fetch Live AND History together
+      final results = await Future.wait([
+        // Call 1: Get latest reading
+        http.get(Uri.parse('$_baseUrl/live-data/${widget.deviceId}'), headers: headers),
+        // Call 2: Get last 24h history (Daily range)
+        http.get(Uri.parse('$_baseUrl/devices/${widget.deviceId}/history?range=daily'), headers: headers),
+      ]);
+
+      final liveResponse = results[0];
+      final historyResponse = results[1];
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
-        List<dynamic> readings = [];
-        if (jsonResponse is List) readings = jsonResponse;
-        else if (jsonResponse['data'] is List) readings = jsonResponse['data'];
+      // --- PROCESS LIVE DATA ---
+      if (liveResponse.statusCode == 200) {
+        final json = jsonDecode(liveResponse.body);
+        // Handle if data is wrapped in 'data' key or direct list
+        dynamic data = json['data'] ?? json;
+        if (data is List && data.isNotEmpty) data = data[0];
 
-        if (readings.isNotEmpty) {
-          final r = readings[0];
-          // Use real data where available
-          pm25 = double.tryParse(r['pm25']?.toString() ?? "0") ?? 0.0;
-          windSpeed = double.tryParse(r['wind_speed']?.toString() ?? "0") ?? 0.0;
-          humidity = double.tryParse(r['humidity']?.toString() ?? "0") ?? 0.0;
-          sunlight = double.tryParse(r['light_intensity']?.toString() ?? "0") ?? 0.0;
+        if (data != null && data is Map) {
+          setState(() {
+            // Parse Backend Fields (Safety checks for null/strings)
+            pm25 = double.tryParse(data['pm25']?.toString() ?? "0") ?? 0.0;
 
-          // Use persistent store for missing sensors (TVOC, MEMS)
-          _fillMissingSensorsWithPersistence();
-          _runAdvancedAlgorithms();
-        } else {
-          _loadPersistentData();
+            // ✅ TVOC is in your database, so map it now!
+            tvoc = double.tryParse(data['tvoc']?.toString() ?? "0") ?? 0.0;
+
+            windSpeed = double.tryParse(data['wind_speed']?.toString() ?? "0") ?? 0.0;
+            humidity = double.tryParse(data['humidity']?.toString() ?? "0") ?? 0.0;
+            sunlight = double.tryParse(data['light_intensity']?.toString() ?? "0") ?? 0.0;
+
+            // ⚠️ MEMS/Vibration isn't in your PHP model yet, so we use a mock fallback
+            // If you add a 'vibration' column later, change this line:
+            memsCurrent = double.tryParse(data['vibration']?.toString() ?? "0") ?? MockDataStore().getOrGenerateData(widget.deviceId)['memsCurrent'];
+          });
         }
-      } else {
-        _loadPersistentData();
       }
+
+      // --- PROCESS HISTORICAL DATA ---
+      if (historyResponse.statusCode == 200) {
+        final json = jsonDecode(historyResponse.body);
+        final List<dynamic> historyList = (json['data'] is List) ? json['data'] : [];
+
+        if (historyList.isNotEmpty) {
+          setState(() {
+            // Map the history list to a List<double> for PM2.5
+            pmHistory24h = historyList.map<double>((item) {
+              return double.tryParse(item['pm25']?.toString() ?? "0") ?? 0.0;
+            }).toList();
+
+            // Handle MEMS history (Mock fallback if missing from DB)
+            if (historyList.first.containsKey('vibration')) {
+              memsHistory24h = historyList.map<double>((item) {
+                return double.tryParse(item['vibration']?.toString() ?? "0") ?? 0.0;
+              }).toList();
+            } else {
+              // Keep existing mock pattern if DB doesn't have vibration history
+              memsHistory24h = MockDataStore().getOrGenerateData(widget.deviceId)['memsHistory'];
+            }
+          });
+        }
+      }
+
+      // 4. Run algorithms with the new Real Data
+      _runAdvancedAlgorithms();
+
     } catch (e) {
+      print("Error fetching backend data: $e");
+      // Fallback to mock on error so screen doesn't break
       _loadPersistentData();
     }
   }
