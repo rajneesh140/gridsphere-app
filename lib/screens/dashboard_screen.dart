@@ -709,7 +709,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Grid Sphere Pvt. Ltd.",
+                    "Grid Sphere",
                     style: GoogleFonts.inter(
                         color: Colors.white,
                         fontSize: 16,
@@ -757,7 +757,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     )
                   else
                     Text(
-                      "AgriTech",
+                      "Technologies",
                       style: GoogleFonts.inter(
                           color: Colors.white70, fontSize: 12),
                     ),
